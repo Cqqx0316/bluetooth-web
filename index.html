@@ -639,7 +639,7 @@
         <div class="card-body">
           <div id="deviceInfo">
             <div><strong>设备名称：</strong> <span id="deviceName">-</span></div>
-            <div><strong>设备ID：</strong> <span id="deviceId">-</span></div>
+            <div><strong>设备ID: </strong> <span id="deviceId">-</span></div>
             <div><strong>服务数量：</strong> <span id="serviceCount">-</span></div>
             <div><strong>连接状态：</strong> <span id="deviceConnected">-</span></div>
           </div>
@@ -1029,7 +1029,9 @@
         readBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 读取中...';
         
         log(`正在读取特征值 ${selectedCharacteristic.uuid}...`, 'info');
-        const value = await selectedCharacteristic.readValue();
+        
+        // 使用带重试的读取
+        const value = await readCharacteristicWithRetry(selectedCharacteristic);
         
         const parsedData = parseReceivedData(value.buffer);
         
@@ -1072,32 +1074,46 @@
           log(`正在订阅特征值 ${selectedCharacteristic.uuid} 的通知...`, 'info');
           
           // 添加通知事件监听器
-          selectedCharacteristic.addEventListener('characteristicvaluechanged', event => {
-            const value = event.target.value;
-            
-            const parsedData = parseReceivedData(value.buffer);
-            
-            if (parsedData.isText) {
-              log(`收到数据: ${parsedData.text}`);
-            } else {
-              const hexDiv = document.createElement('div');
-              hexDiv.className = 'hex-view';
-              hexDiv.textContent = parsedData.hex;
+          selectedCharacteristic.addEventListener('characteristicvaluechanged', handleNotification);
+          
+          // 开始通知，带重试机制
+          let retries = 0;
+          while (retries < 3) {
+            try {
+              await selectedCharacteristic.startNotifications();
+              log('通知订阅成功，现在可以接收数据', 'info');
               
-              log(`收到二进制数据:`, 'normal');
-              const lastChild = output.lastChild;
-              lastChild.appendChild(document.createElement('br'));
-              lastChild.appendChild(hexDiv);
+              // 更改按钮文字和样式
+              subscribeBtn.innerHTML = '<i class="bi bi-bell-slash"></i> 取消订阅';
+              subscribeBtn.style.backgroundColor = 'var(--warning-color)';
+              break;
+            } catch (error) {
+              retries++;
+              if (error.message.includes('GATT Server is disconnected')) {
+                log('订阅时GATT服务器断开，尝试重新连接...', 'warning');
+                try {
+                  await connectWithRetry();
+                  // 重新获取特征值
+                  const newService = await server.getPrimaryService(selectedService.uuid);
+                  selectedService = newService;
+                  const newCharacteristics = await newService.getCharacteristics();
+                  for (const newChar of newCharacteristics) {
+                    if (newChar.uuid === selectedCharacteristic.uuid) {
+                      selectedCharacteristic = newChar;
+                      break;
+                    }
+                  }
+                  // 如果已重试3次仍失败
+                  if (retries === 3) throw error;
+                } catch (e) {
+                  if (retries === 3) throw error;
+                }
+              } else {
+                if (retries === 3) throw error;
+                await new Promise(resolve => setTimeout(resolve, 500));
+              }
             }
-          });
-          
-          // 开始通知
-          await selectedCharacteristic.startNotifications();
-          log('通知订阅成功，现在可以接收数据', 'info');
-          
-          // 更改按钮文字和样式
-          subscribeBtn.innerHTML = '<i class="bi bi-bell-slash"></i> 取消订阅';
-          subscribeBtn.style.backgroundColor = 'var(--warning-color)';
+          }
         } else {
           // 取消订阅
           subscribeBtn.disabled = true;
@@ -1105,6 +1121,7 @@
           
           // 停止通知
           await selectedCharacteristic.stopNotifications();
+          selectedCharacteristic.removeEventListener('characteristicvaluechanged', handleNotification);
           log('已取消通知订阅', 'info');
           
           // 更改按钮文字和样式
@@ -1112,7 +1129,11 @@
           subscribeBtn.style.backgroundColor = 'var(--success-color)';
         }
       } catch (error) {
-        log(`${isSubscribing ? '订阅' : '取消订阅'}失败: ${error.message}`, 'error');
+        const action = subscribeBtn.textContent.includes('订阅') ? '订阅' : '取消订阅';
+        log(`${action}失败: ${error.message}`, 'error');
+        // 重置按钮状态
+        subscribeBtn.innerHTML = '<i class="bi bi-bell"></i> 订阅通知';
+        subscribeBtn.style.backgroundColor = 'var(--success-color)';
       } finally {
         subscribeBtn.disabled = false;
       }
@@ -1165,30 +1186,36 @@
         deviceInfoCard.style.display = 'block';
 
         // 设置设备断开连接监听
-        device.addEventListener('gattserverdisconnected', () => {
-          log('设备连接已断开', 'error');
-          disconnectBtn.disabled = true;
-          connectBtn.disabled = false;
-          connectBtn.innerHTML = '<i class="bi bi-bluetooth"></i> 连接蓝牙设备';
-          updateConnectionStatus(false);
-        });
+        device.addEventListener('gattserverdisconnected', onDisconnected);
 
-        // 连接到设备
-        server = await device.gatt.connect();
-        log('已连接到GATT服务器', 'info');
+        // 连接到设备，添加重试机制
+        await connectWithRetry();
         
         // 获取所有服务
-        services = await server.getPrimaryServices();
-        log(`发现 ${services.length} 个服务`, 'info');
-        
-        // 更新服务数量信息
-        serviceCount.textContent = services.length;
-        
-        // 显示服务卡片
-        serviceCard.style.display = 'block';
-        
-        // 显示服务列表
-        displayServices(serviceList, services);
+        try {
+          services = await server.getPrimaryServices();
+          log(`发现 ${services.length} 个服务`, 'info');
+          
+          // 更新服务数量信息
+          serviceCount.textContent = services.length;
+          
+          // 显示服务卡片
+          serviceCard.style.display = 'block';
+          
+          // 显示服务列表
+          displayServices(serviceList, services);
+        } catch (serviceError) {
+          log(`获取服务失败: ${serviceError.message}`, 'error');
+          // 尝试重新连接并获取服务
+          log('尝试重新连接...', 'warning');
+          await connectWithRetry();
+          services = await server.getPrimaryServices();
+          log(`重试后发现 ${services.length} 个服务`, 'info');
+          
+          serviceCount.textContent = services.length;
+          serviceCard.style.display = 'block';
+          displayServices(serviceList, services);
+        }
         
         // 更新连接状态
         updateConnectionStatus(true);
@@ -1200,11 +1227,24 @@
           log('用户取消了设备选择', 'error');
         } else if (error.message.includes('Bluetooth adapter not available')) {
           log('蓝牙适配器不可用。请确保您的设备蓝牙已开启。', 'error');
+        } else if (error.message.includes('GATT Server is disconnected')) {
+          log('GATT服务器已断开连接，尝试重新连接...', 'error');
+          try {
+            await connectWithRetry();
+            log('重新连接成功', 'info');
+            updateConnectionStatus(true);
+            disconnectBtn.disabled = false;
+          } catch (reconnectError) {
+            log(`重新连接失败: ${reconnectError.message}`, 'error');
+            updateConnectionStatus(false);
+          }
         } else {
           log(`连接错误: ${error.message}`, 'error');
         }
         
-        updateConnectionStatus(false);
+        if (!device || !device.gatt.connected) {
+          updateConnectionStatus(false);
+        }
       } finally {
         connectBtn.disabled = false;
         connectBtn.innerHTML = '<i class="bi bi-bluetooth"></i> 连接蓝牙设备';
@@ -1229,23 +1269,162 @@
       }
     });
 
-    // 页面加载时检查浏览器兼容性
-    window.addEventListener('load', () => {
-      if (!navigator.bluetooth) {
-        log('您的浏览器不支持Web Bluetooth API。请使用Chrome、Edge或其他支持Web Bluetooth的浏览器。', 'error');
-        connectBtn.disabled = true;
+    // 添加重连机制
+    async function connectWithRetry(maxRetries = 3) {
+      let retries = 0;
+      
+      while (retries < maxRetries) {
+        try {
+          log(`连接尝试 ${retries + 1}/${maxRetries}...`, retries > 0 ? 'warning' : 'info');
+          server = await device.gatt.connect();
+          log('已连接到GATT服务器', 'info');
+          return;
+        } catch (error) {
+          retries++;
+          if (retries >= maxRetries) {
+            throw new Error(`连接失败，已尝试 ${maxRetries} 次: ${error.message}`);
+          }
+          
+          log(`连接失败: ${error.message}，${retries < maxRetries ? '正在重试...' : ''}`, 'warning');
+          
+          // 等待一段时间再重试
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+    }
+
+    // 断开连接处理函数
+    function onDisconnected() {
+      log('设备连接已断开', 'error');
+      disconnectBtn.disabled = true;
+      connectBtn.disabled = false;
+      connectBtn.innerHTML = '<i class="bi bi-bluetooth"></i> 连接蓝牙设备';
+      updateConnectionStatus(false);
+      
+      // 提供重连选项
+      const reconnectDiv = document.createElement('div');
+      reconnectDiv.className = 'data-row warning';
+      
+      const badge = document.createElement('span');
+      badge.className = 'badge badge-warning';
+      badge.textContent = '系统';
+      
+      const reconnectBtn = document.createElement('button');
+      reconnectBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> 重新连接';
+      reconnectBtn.style.marginLeft = '10px';
+      reconnectBtn.style.padding = '3px 10px';
+      reconnectBtn.style.fontSize = '12px';
+      reconnectBtn.style.backgroundColor = 'var(--warning-color)';
+      
+      reconnectDiv.appendChild(badge);
+      reconnectDiv.appendChild(document.createTextNode(' 设备连接已断开，是否重新连接？'));
+      reconnectDiv.appendChild(reconnectBtn);
+      
+      output.appendChild(reconnectDiv);
+      
+      if (autoScroll) {
+        output.scrollTop = output.scrollHeight;
+      }
+      
+      // 点击重连按钮
+      reconnectBtn.addEventListener('click', async () => {
+        reconnectBtn.disabled = true;
+        reconnectBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 重连中...';
         
-        // 添加不兼容浏览器警告
-        const warningBanner = document.createElement('div');
-        warningBanner.style.padding = '15px';
-        warningBanner.style.marginBottom = '20px';
-        warningBanner.style.backgroundColor = '#fff3cd';
-        warningBanner.style.color = '#856404';
-        warningBanner.style.borderRadius = '5px';
-        warningBanner.style.border = '1px solid #ffeeba';
-        warningBanner.innerHTML = '<strong>兼容性警告：</strong> 您的浏览器不支持Web Bluetooth功能。请使用Chrome、Edge或其他支持Web Bluetooth的现代浏览器。';
+        try {
+          await connectWithRetry();
+          
+          // 尝试重新获取服务
+          services = await server.getPrimaryServices();
+          serviceCount.textContent = services.length;
+          serviceCard.style.display = 'block';
+          displayServices(serviceList, services);
+          
+          updateConnectionStatus(true);
+          disconnectBtn.disabled = false;
+          
+          log('重新连接成功', 'info');
+        } catch (error) {
+          log(`重新连接失败: ${error.message}`, 'error');
+        } finally {
+          reconnectDiv.remove();
+        }
+      });
+    }
+
+    // 当特征值读取失败时重试
+    async function readCharacteristicWithRetry(characteristic, maxRetries = 2) {
+      let retries = 0;
+      
+      while (retries <= maxRetries) {
+        try {
+          return await characteristic.readValue();
+        } catch (error) {
+          retries++;
+          if (error.message.includes('GATT Server is disconnected')) {
+            log('读取时GATT服务器断开，尝试重新连接...', 'warning');
+            
+            // 尝试重新连接
+            try {
+              await connectWithRetry();
+              // 重新获取特征值
+              const newService = await server.getPrimaryService(selectedService.uuid);
+              selectedService = newService;
+              const newCharacteristics = await newService.getCharacteristics();
+              for (const newChar of newCharacteristics) {
+                if (newChar.uuid === characteristic.uuid) {
+                  characteristic = newChar;
+                  selectedCharacteristic = newChar;
+                  break;
+                }
+              }
+            } catch (reconnectError) {
+              if (retries >= maxRetries) {
+                throw new Error('重新连接失败');
+              }
+            }
+          } else if (retries >= maxRetries) {
+            throw error;
+          } else {
+            // 其他错误，等待后重试
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+      }
+    }
+
+    // 通知处理函数
+    function handleNotification(event) {
+      const value = event.target.value;
+      
+      const parsedData = parseReceivedData(value.buffer);
+      
+      if (parsedData.isText) {
+        log(`收到数据: ${parsedData.text}`);
+      } else {
+        const hexDiv = document.createElement('div');
+        hexDiv.className = 'hex-view';
+        hexDiv.textContent = parsedData.hex;
         
-        document.body.insertBefore(warningBanner, document.body.firstChild);
+        log(`收到二进制数据:`, 'normal');
+        const lastChild = output.lastChild;
+        lastChild.appendChild(document.createElement('br'));
+        lastChild.appendChild(hexDiv);
+      }
+    }
+
+    // 在页面底部添加这段代码以监测和恢复蓝牙适配器状态变化
+    navigator.bluetooth?.addEventListener('availabilitychanged', e => {
+      const isAvailable = e.value;
+      if (isAvailable) {
+        log('蓝牙适配器已可用', 'info');
+        connectBtn.disabled = false;
+      } else {
+        log('蓝牙适配器不可用', 'warning');
+        if (device && device.gatt.connected) {
+          log('由于蓝牙适配器不可用，设备已断开连接', 'error');
+          updateConnectionStatus(false);
+        }
       }
     });
   </script>
