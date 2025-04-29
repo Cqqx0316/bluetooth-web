@@ -1,23 +1,21 @@
-\index\index.html -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>通用蓝牙数据接收器</title>
+  <title>ESP32 健康监测仪</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
     :root {
       --primary-color: #3498db;
-      --primary-dark: #2980b9;
-      --success-color: #2ecc71;
+      --secondary-color: #2ecc71;
       --danger-color: #e74c3c;
       --warning-color: #f39c12;
       --light-color: #f8f9fa;
       --dark-color: #343a40;
       --gray-color: #6c757d;
-      --border-radius: 8px;
       --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      --border-radius: 10px;
       --transition: all 0.3s ease;
     }
     
@@ -32,44 +30,92 @@
       background-color: #f0f2f5;
       color: #333;
       line-height: 1.6;
-      max-width: 1000px;
-      margin: 0 auto;
       padding: 20px;
-      transition: var(--transition);
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid var(--primary-color);
+    }
+    
+    .header h1 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--dark-color);
+      font-size: 28px;
+      font-weight: 600;
+    }
+    
+    .header h1 i {
+      color: var(--primary-color);
+    }
+    
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      padding: 8px 15px;
+      border-radius: 20px;
+      background: var(--light-color);
+    }
+    
+    .status-connected {
+      color: var(--secondary-color);
+    }
+    
+    .status-disconnected {
+      color: var(--danger-color);
+    }
+    
+    .pulse {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+    
+    .connected .pulse {
+      background-color: var(--secondary-color);
+    }
+    
+    .disconnected .pulse {
+      background-color: var(--danger-color);
+    }
+    
+    @keyframes pulse {
+      0% {
+        transform: scale(0.8);
+        opacity: 0.8;
+      }
+      50% {
+        transform: scale(1.2);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(0.8);
+        opacity: 0.8;
+      }
     }
     
     .container {
       display: grid;
-      grid-template-columns: repeat(12, 1fr);
+      grid-template-columns: 350px 1fr;
       gap: 20px;
     }
     
-    .header {
-      grid-column: span 12;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 15px 0;
-      border-bottom: 2px solid var(--primary-color);
-      margin-bottom: 20px;
-    }
-    
-    .app-title {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      color: var(--dark-color);
-    }
-    
-    .app-title i {
-      font-size: 1.8em;
-      color: var(--primary-color);
-    }
-    
-    .app-title h1 {
-      font-size: 1.8em;
-      font-weight: 600;
-      margin: 0;
+    @media (max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
     }
     
     .card {
@@ -95,7 +141,8 @@
     }
     
     .card-header h2 {
-      font-size: 1.3em;
+      font-size: 18px;
+      font-weight: 600;
       margin: 0;
       color: var(--dark-color);
       display: flex;
@@ -111,136 +158,6 @@
       padding: 20px;
     }
     
-    .control-panel {
-      grid-column: span 12;
-      margin-bottom: 20px;
-    }
-    
-    .data-panel {
-      grid-column: span 12;
-    }
-    
-    @media (min-width: 768px) {
-      .control-panel {
-        grid-column: span 5;
-        margin-bottom: 0;
-      }
-      
-      .data-panel {
-        grid-column: span 7;
-      }
-    }
-    
-    .connection-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 600;
-      padding: 8px 15px;
-      border-radius: 20px;
-      background: #f8f9fa;
-    }
-    
-    .status-connected {
-      color: var(--success-color);
-    }
-    
-    .status-disconnected {
-      color: var(--danger-color);
-    }
-    
-    .pulse {
-      display: inline-block;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      animation: pulse 1.5s infinite;
-    }
-    
-    .connected .pulse {
-      background-color: var(--success-color);
-    }
-    
-    .disconnected .pulse {
-      background-color: var(--danger-color);
-    }
-    
-    @keyframes pulse {
-      0% {
-        transform: scale(0.8);
-        opacity: 0.8;
-      }
-      50% {
-        transform: scale(1.2);
-        opacity: 1;
-      }
-      100% {
-        transform: scale(0.8);
-        opacity: 0.8;
-      }
-    }
-    
-    .filter-options {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-    
-    .filter-option {
-      display: flex;
-      align-items: center;
-      background-color: var(--light-color);
-      padding: 10px 15px;
-      border-radius: var(--border-radius);
-      transition: var(--transition);
-    }
-    
-    .filter-option:hover {
-      background-color: #e9ecef;
-    }
-    
-    .filter-option input[type="radio"] {
-      margin-right: 10px;
-      cursor: pointer;
-      accent-color: var(--primary-color);
-      width: 16px;
-      height: 16px;
-    }
-    
-    .filter-option label {
-      font-weight: 500;
-      flex: 1;
-      cursor: pointer;
-    }
-    
-    .name-filter-container {
-      display: flex;
-      align-items: center;
-      margin-top: 10px;
-      margin-left: 25px;
-    }
-    
-    #nameFilter {
-      flex: 1;
-      padding: 8px 12px;
-      border: 1px solid #ced4da;
-      border-radius: 4px;
-      transition: var(--transition);
-    }
-    
-    #nameFilter:focus {
-      outline: none;
-      border-color: var(--primary-color);
-      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.25);
-    }
-    
-    .button-group {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
-    }
-    
     button {
       display: flex;
       align-items: center;
@@ -252,9 +169,10 @@
       cursor: pointer;
       color: white;
       border: none;
-      border-radius: var(--border-radius);
+      border-radius: 8px;
       transition: var(--transition);
       width: 100%;
+      margin-bottom: 15px;
     }
     
     button i {
@@ -266,7 +184,7 @@
     }
     
     #connectBtn:hover:not(:disabled) {
-      background-color: var(--primary-dark);
+      background-color: #2980b9;
       transform: translateY(-2px);
     }
     
@@ -285,1148 +203,675 @@
       opacity: 0.7;
     }
     
-    #output {
-      white-space: pre-wrap;
-      min-height: 200px;
-      max-height: 500px;
-      overflow-y: auto;
-      font-family: "Consolas", monospace;
-      font-size: 14px;
-      line-height: 1.5;
-      padding: 0;
+    .device-info {
+      margin-top: 20px;
     }
     
-    .data-controls {
+    .device-info-item {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 15px;
-    }
-    
-    .data-controls button {
-      padding: 8px 15px;
-      width: auto;
-      font-size: 14px;
-    }
-    
-    .data-row {
-      padding: 8px 15px;
+      padding: 10px 0;
       border-bottom: 1px solid #eee;
-      transition: var(--transition);
     }
     
-    .data-row:hover {
-      background-color: #f8f9fa;
-    }
-    
-    .data-row.normal {
-      color: #333;
-    }
-    
-    .data-row.info {
-      color: var(--primary-color);
-    }
-    
-    .data-row.error {
-      color: var(--danger-color);
-    }
-    
-    .data-row.warning {
-      color: var(--warning-color);
-    }
-    
-    .data-timestamp {
-      font-weight: 500;
-      margin-right: 5px;
-    }
-    
-    .data-content {
-      display: inline;
-    }
-    
-    .badge {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 600;
-      color: white;
-    }
-    
-    .badge-primary {
-      background-color: var(--primary-color);
-    }
-    
-    .badge-success {
-      background-color: var(--success-color);
-    }
-    
-    .badge-danger {
-      background-color: var(--danger-color);
-    }
-    
-    .badge-warning {
-      background-color: var(--warning-color);
-    }
-    
-    .footer {
-      grid-column: span 12;
-      text-align: center;
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid #ddd;
-      color: var(--gray-color);
-      font-size: 14px;
-    }
-    
-    .auto-scroll {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 5px;
-      margin-bottom: 10px;
-      font-weight: 500;
-      color: var(--gray-color);
-    }
-    
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 40px;
-      height: 20px;
-    }
-    
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-    
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #ccc;
-      transition: var(--transition);
-      border-radius: 20px;
-    }
-    
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 16px;
-      width: 16px;
-      left: 2px;
-      bottom: 2px;
-      background-color: white;
-      transition: var(--transition);
-      border-radius: 50%;
-    }
-    
-    input:checked + .slider {
-      background-color: var(--primary-color);
-    }
-    
-    input:checked + .slider:before {
-      transform: translateX(20px);
-    }
-    
-    .tooltip {
-      position: relative;
-      display: inline-block;
-    }
-    
-    .tooltiptext {
-      visibility: hidden;
-      width: 180px;
-      background-color: #333;
-      color: #fff;
-      text-align: center;
-      border-radius: 6px;
-      padding: 5px;
-      position: absolute;
-      z-index: 1;
-      bottom: 125%;
-      left: 50%;
-      transform: translateX(-50%);
-      opacity: 0;
-      transition: opacity 0.3s;
-      font-size: 12px;
-    }
-    
-    .tooltip:hover .tooltiptext {
-      visibility: visible;
-      opacity: 1;
-    }
-    
-    .service-list {
-      max-height: 200px;
-      overflow-y: auto;
-      margin-top: 10px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      background-color: white;
-    }
-    
-    .characteristic-list {
-      max-height: 200px;
-      overflow-y: auto;
-      margin-top: 10px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      background-color: white;
-    }
-    
-    .service-item, .characteristic-item {
-      padding: 8px 12px;
-      border-bottom: 1px solid #eee;
-      cursor: pointer;
-      transition: var(--transition);
-    }
-    
-    .service-item:hover, .characteristic-item:hover {
-      background-color: #f5f5f5;
-    }
-    
-    .service-item.selected, .characteristic-item.selected {
-      background-color: #e3f2fd;
-      font-weight: 500;
-    }
-    
-    .service-item:last-child, .characteristic-item:last-child {
+    .device-info-item:last-child {
       border-bottom: none;
     }
     
-    .property-badge {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 10px;
-      margin-left: 5px;
-      background-color: #e9ecef;
-      color: #495057;
+    .log-container {
+      height: 200px;
+      overflow-y: auto;
+      border: 1px solid #eee;
+      border-radius: 5px;
+      padding: 10px;
+      margin-top: 15px;
+      background: #f8f9fa;
+      font-family: monospace;
+      font-size: 14px;
     }
     
-    @media (max-width: 767px) {
-      .header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-      }
-      
-      .connection-status {
-        align-self: flex-start;
-      }
-      
-      .button-group {
-        flex-direction: column;
-      }
+    .log-item {
+      padding: 5px 0;
+      border-bottom: 1px solid #eee;
     }
-
-    .hex-view {
-      font-family: monospace;
-      word-wrap: break-word;
-      color: #0366d6;
+    
+    .log-item:last-child {
+      border-bottom: none;
+    }
+    
+    .log-time {
+      color: #666;
+      margin-right: 5px;
+      font-size: 12px;
+    }
+    
+    .log-info {
+      color: var(--primary-color);
+    }
+    
+    .log-error {
+      color: var(--danger-color);
+    }
+    
+    .log-success {
+      color: var(--secondary-color);
+    }
+    
+    .health-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    
+    .metric-card {
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      overflow: hidden;
+      transition: var(--transition);
+      padding: 20px;
+      text-align: center;
+    }
+    
+    .metric-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .metric-icon {
+      font-size: 30px;
+      margin-bottom: 10px;
+      display: inline-block;
+    }
+    
+    .heart-rate-icon {
+      color: #e74c3c;
+    }
+    
+    .spo2-icon {
+      color: #3498db;
+    }
+    
+    .fatigue-icon {
+      color: #f39c12;
+    }
+    
+    .bp-icon {
+      color: #9b59b6;
+    }
+    
+    .metric-value {
+      font-size: 36px;
+      font-weight: 700;
+      margin: 10px 0;
+    }
+    
+    .metric-label {
+      font-size: 16px;
+      color: var(--gray-color);
+      margin-bottom: 5px;
+    }
+    
+    .metric-description {
+      font-size: 14px;
+      color: var(--gray-color);
+    }
+    
+    .metric-normal {
+      color: var(--secondary-color);
+    }
+    
+    .metric-warning {
+      color: var(--warning-color);
+    }
+    
+    .metric-danger {
+      color: var(--danger-color);
+    }
+    
+    .sparkline {
+      height: 40px;
+      width: 100%;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="app-title">
-      <i class="bi bi-bluetooth"></i>
-      <h1>通用蓝牙数据接收器</h1>
-    </div>
+    <h1><i class="bi bi-heart-pulse-fill"></i> ESP32 健康监测仪</h1>
     <div id="connectionStatus" class="connection-status disconnected">
       <span class="pulse"></span>
       <span class="status-text">未连接</span>
     </div>
   </div>
-
+  
   <div class="container">
-    <div class="control-panel">
+    <div class="left-panel">
       <div class="card">
         <div class="card-header">
-          <h2><i class="bi bi-gear-fill"></i> 设备连接</h2>
+          <h2><i class="bi bi-bluetooth"></i> 设备连接</h2>
         </div>
         <div class="card-body">
-          <div class="filter-options">
-            <div class="filter-option">
-              <input type="radio" id="filterAll" name="filterType" value="all" checked>
-              <label for="filterAll">显示所有设备</label>
-              <div class="tooltip">
-                <i class="bi bi-info-circle"></i>
-                <span class="tooltiptext">连接任何可用的蓝牙设备</span>
-              </div>
+          <button id="connectBtn">
+            <i class="bi bi-bluetooth"></i> 连接设备
+          </button>
+          <button id="disconnectBtn" disabled>
+            <i class="bi bi-x-circle-fill"></i> 断开连接
+          </button>
+          
+          <div class="device-info">
+            <div class="device-info-item">
+              <span>设备名称:</span>
+              <span id="deviceName">-</span>
             </div>
-            <div class="filter-option">
-              <input type="radio" id="filterName" name="filterType" value="name">
-              <label for="filterName">按名称过滤</label>
-              <div class="name-filter-container" id="nameFilterContainer" style="display: none;">
-                <input type="text" id="nameFilter" placeholder="输入设备名称" disabled>
-              </div>
+            <div class="device-info-item">
+              <span>设备 ID:</span>
+              <span id="deviceId">-</span>
+            </div>
+            <div class="device-info-item">
+              <span>连接状态:</span>
+              <span id="connectionState">未连接</span>
             </div>
           </div>
-          <div class="button-group">
-            <button id="connectBtn">
-              <i class="bi bi-bluetooth"></i> 连接蓝牙设备
-            </button>
-            <button id="disconnectBtn" disabled>
-              <i class="bi bi-x-circle-fill"></i> 断开连接
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <div class="card mt-4" id="serviceCard" style="margin-top: 20px; display: none;">
-        <div class="card-header">
-          <h2><i class="bi bi-list-ul"></i> 服务与特征值</h2>
-        </div>
-        <div class="card-body">
-          <div id="serviceInfo">
-            <h3 style="font-size: 16px; margin-bottom: 10px;">可用服务：</h3>
-            <div id="serviceList" class="service-list"></div>
-            
-            <h3 style="font-size: 16px; margin: 15px 0 10px 0;">特征值：</h3>
-            <div id="characteristicList" class="characteristic-list"></div>
-            
-            <button id="subscribeBtn" class="mt-3" style="margin-top: 15px; background-color: var(--success-color);" disabled>
-              <i class="bi bi-bell"></i> 订阅通知
-            </button>
-          </div>
+          
+          <h3 style="margin-top: 20px; margin-bottom: 10px; font-size: 16px;">日志信息</h3>
+          <div class="log-container" id="logContainer"></div>
         </div>
       </div>
     </div>
-
-    <div class="data-panel">
-      <div class="card">
-        <div class="card-header">
-          <h2><i class="bi bi-reception-4"></i> 接收数据</h2>
-          <div class="auto-scroll">
-            自动滚动
-            <label class="switch">
-              <input type="checkbox" id="autoScrollSwitch" checked>
-              <span class="slider"></span>
-            </label>
+    
+    <div class="right-panel">
+      <div class="health-metrics">
+        <div class="metric-card">
+          <div class="metric-icon heart-rate-icon">
+            <i class="bi bi-heart-pulse-fill"></i>
           </div>
+          <div class="metric-label">心率</div>
+          <div id="heartRate" class="metric-value metric-normal">--</div>
+          <div class="metric-description">每分钟心跳次数 (BPM)</div>
+          <div class="sparkline" id="heartRateChart"></div>
         </div>
-        <div class="card-body">
-          <div class="data-controls">
-            <button id="clearBtn" class="btn-clear">
-              <i class="bi bi-trash"></i> 清空日志
-            </button>
-            <div style="display: flex; gap: 10px;">
-              <button id="readBtn" class="btn-read" disabled>
-                <i class="bi bi-arrow-down-circle"></i> 读取数据
-              </button>
-              <button id="exportBtn" class="btn-export">
-                <i class="bi bi-download"></i> 导出数据
-              </button>
-            </div>
+        
+        <div class="metric-card">
+          <div class="metric-icon spo2-icon">
+            <i class="bi bi-droplet-fill"></i>
           </div>
-          <div id="output">
-            <div class="data-row info">
-              <span class="badge badge-primary">系统</span> 等待连接蓝牙设备...
-            </div>
-          </div>
+          <div class="metric-label">血氧饱和度</div>
+          <div id="spo2" class="metric-value metric-normal">--</div>
+          <div class="metric-description">血液中氧气饱和百分比 (%)</div>
+          <div class="sparkline" id="spo2Chart"></div>
         </div>
-      </div>
-      
-      <div class="card mt-4" id="deviceInfoCard" style="margin-top: 20px; display: none;">
-        <div class="card-header">
-          <h2><i class="bi bi-info-circle"></i> 设备信息</h2>
-        </div>
-        <div class="card-body">
-          <div id="deviceInfo">
-            <div><strong>设备名称：</strong> <span id="deviceName">-</span></div>
-            <div><strong>设备ID: </strong> <span id="deviceId">-</span></div>
-            <div><strong>服务数量：</strong> <span id="serviceCount">-</span></div>
-            <div><strong>连接状态：</strong> <span id="deviceConnected">-</span></div>
+        
+        <div class="metric-card">
+          <div class="metric-icon fatigue-icon">
+            <i class="bi bi-battery-half"></i>
           </div>
+          <div class="metric-label">疲劳指数</div>
+          <div id="fatigueIndex" class="metric-value metric-normal">--</div>
+          <div class="metric-description">身体疲劳程度 (0-100)</div>
+          <div class="sparkline" id="fatigueChart"></div>
+        </div>
+        
+        <div class="metric-card">
+          <div class="metric-icon bp-icon">
+            <i class="bi bi-activity"></i>
+          </div>
+          <div class="metric-label">血压</div>
+          <div id="bloodPressure" class="metric-value metric-normal">--/--</div>
+          <div class="metric-description">收缩压/舒张压 (mmHg)</div>
+          <div class="sparkline" id="bpChart"></div>
         </div>
       </div>
-    </div>
-
-    <div class="footer">
-      <p>通用蓝牙数据接收器 v3.0 | <a href="#" id="aboutBtn">关于</a></p>
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
   <script>
+    // DOM 元素
     const connectBtn = document.getElementById('connectBtn');
     const disconnectBtn = document.getElementById('disconnectBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const exportBtn = document.getElementById('exportBtn');
-    const readBtn = document.getElementById('readBtn');
-    const subscribeBtn = document.getElementById('subscribeBtn');
-    const output = document.getElementById('output');
     const connectionStatus = document.getElementById('connectionStatus');
-    const nameFilter = document.getElementById('nameFilter');
-    const nameFilterContainer = document.getElementById('nameFilterContainer');
-    const filterRadios = document.querySelectorAll('input[name="filterType"]');
-    const autoScrollSwitch = document.getElementById('autoScrollSwitch');
-    const aboutBtn = document.getElementById('aboutBtn');
-    const serviceList = document.getElementById('serviceList');
-    const characteristicList = document.getElementById('characteristicList');
-    const serviceCard = document.getElementById('serviceCard');
-    const deviceInfoCard = document.getElementById('deviceInfoCard');
-    
-    // 设备信息相关元素
+    const logContainer = document.getElementById('logContainer');
     const deviceName = document.getElementById('deviceName');
     const deviceId = document.getElementById('deviceId');
-    const serviceCount = document.getElementById('serviceCount');
-    const deviceConnected = document.getElementById('deviceConnected');
-
-    let device, server;
-    let selectedService = null;
-    let selectedCharacteristic = null;
-    let receivedData = [];
-    let autoScroll = true;
-    let services = [];
-    let characteristics = [];
+    const connectionState = document.getElementById('connectionState');
     
-    // 启用/禁用名称过滤器输入框
-    filterRadios.forEach(radio => {
-      radio.addEventListener('change', () => {
-        nameFilter.disabled = radio.value !== 'name';
-        nameFilterContainer.style.display = radio.value === 'name' ? 'block' : 'none';
-      });
-    });
-
-    // 自动滚动开关
-    autoScrollSwitch.addEventListener('change', () => {
-      autoScroll = autoScrollSwitch.checked;
-      if (autoScroll) {
-        output.scrollTop = output.scrollHeight;
-      }
-    });
-
-    // 记录消息到输出
-    function log(message, type = 'normal') {
+    // 健康指标元素
+    const heartRateElement = document.getElementById('heartRate');
+    const spo2Element = document.getElementById('spo2');
+    const fatigueIndexElement = document.getElementById('fatigueIndex');
+    const bloodPressureElement = document.getElementById('bloodPressure');
+    
+    // 设备信息和连接状态
+    let device = null;
+    let server = null;
+    let notifyCharacteristic = null;
+    let isConnected = false;
+    
+    // 健康数据历史记录
+    const maxDataPoints = 10;
+    const healthData = {
+      heartRate: [],
+      spo2: [],
+      fatigueIndex: [],
+      systolic: [],
+      diastolic: []
+    };
+    
+    // 图表实例
+    let charts = {};
+    
+    // 添加日志
+    function addLog(message, type = 'info') {
+      const logItem = document.createElement('div');
+      logItem.className = `log-item log-${type}`;
+      
       const now = new Date();
       const timeStr = now.toLocaleTimeString();
-      const messageDiv = document.createElement('div');
-      messageDiv.className = `data-row ${type}`;
       
-      // 根据消息类型添加不同的标签
-      let badgeText = '数据';
-      let badgeClass = 'badge-primary';
+      const logTime = document.createElement('span');
+      logTime.className = 'log-time';
+      logTime.textContent = `[${timeStr}] `;
       
-      if (type === 'error') {
-        badgeText = '错误';
-        badgeClass = 'badge-danger';
-      } else if (type === 'info') {
-        badgeText = '系统';
-        badgeClass = 'badge-primary';
-      } else if (type === 'warning') {
-        badgeText = '警告';
-        badgeClass = 'badge-warning';
-      } else if (message.startsWith('收到数据:')) {
-        badgeText = '接收';
-        badgeClass = 'badge-success';
-      }
+      logItem.appendChild(logTime);
+      logItem.appendChild(document.createTextNode(message));
       
-      const badge = document.createElement('span');
-      badge.className = `badge ${badgeClass}`;
-      badge.textContent = badgeText;
-      
-      messageDiv.appendChild(badge);
-      messageDiv.appendChild(document.createTextNode(' ' + message));
-      
-      output.appendChild(messageDiv);
-      
-      // 存储数据用于导出
-      receivedData.push({
-        time: timeStr,
-        type: type,
-        message: message
-      });
-      
-      if (autoScroll) {
-        output.scrollTop = output.scrollHeight;
-      }
+      logContainer.appendChild(logItem);
+      logContainer.scrollTop = logContainer.scrollHeight;
     }
-
-    // 清空输出
-    function clearLog() {
-      output.innerHTML = '';
-      receivedData = [];
-    }
-
-    // 导出数据为CSV
-    function exportData() {
-      if (receivedData.length === 0) {
-        log('没有数据可以导出', 'warning');
-        return;
-      }
+    
+    // 更新连接状态 UI
+    function updateConnectionUI(connected) {
+      isConnected = connected;
       
-      let csvContent = "时间,类型,消息\n";
-      receivedData.forEach(row => {
-        csvContent += `${row.time},${row.type},"${row.message.replace(/"/g, '""')}"\n`;
-      });
-      
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `蓝牙数据_${new Date().toISOString().slice(0,10)}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      log('数据已导出为CSV文件', 'info');
-    }
-
-    // 更新连接状态
-    function updateConnectionStatus(connected) {
       if (connected) {
         connectionStatus.className = 'connection-status connected';
         connectionStatus.querySelector('.status-text').textContent = '已连接';
-        deviceConnected.textContent = '已连接';
+        connectionState.textContent = '已连接';
+        connectionState.style.color = 'var(--secondary-color)';
+        
+        connectBtn.disabled = true;
+        disconnectBtn.disabled = false;
+        
+        addLog('设备连接成功', 'success');
       } else {
         connectionStatus.className = 'connection-status disconnected';
         connectionStatus.querySelector('.status-text').textContent = '未连接';
-        deviceConnected.textContent = '未连接';
+        connectionState.textContent = '未连接';
+        connectionState.style.color = 'var(--danger-color)';
         
-        // 隐藏服务卡片
-        serviceCard.style.display = 'none';
-        deviceInfoCard.style.display = 'none';
+        connectBtn.disabled = false;
+        disconnectBtn.disabled = true;
         
-        // 禁用相关按钮
-        readBtn.disabled = true;
-        subscribeBtn.disabled = true;
+        // 重置设备信息
+        if (!device) {
+          deviceName.textContent = '-';
+          deviceId.textContent = '-';
+        }
       }
     }
     
-    // 显示服务列表
-    function displayServices(serviceList, services) {
-      serviceList.innerHTML = '';
-      if (services.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'service-item';
-        empty.textContent = '未找到服务';
-        serviceList.appendChild(empty);
-        return;
+    // 解析通知数据
+    function parseNotification(data) {
+      const value = data.trim();
+      
+      if (value.startsWith('心率：')) {
+        const heartRate = parseInt(value.replace('心率：', ''), 10);
+        updateHeartRate(heartRate);
+        
+      } else if (value.startsWith('血氧：')) {
+        const spo2 = parseInt(value.replace('血氧：', ''), 10);
+        updateSpo2(spo2);
+        
+      } else if (value.startsWith('疲劳指数：')) {
+        const fatigue = parseInt(value.replace('疲劳指数：', ''), 10);
+        updateFatigueIndex(fatigue);
+        
+      } else if (value.startsWith('收缩压：')) {
+        const systolic = parseInt(value.replace('收缩压：', ''), 10);
+        updateSystolic(systolic);
+        
+      } else if (value.startsWith('舒张压：')) {
+        const diastolic = parseInt(value.replace('舒张压：', ''), 10);
+        updateDiastolic(diastolic);
+      }
+    }
+    
+    // 更新心率
+    function updateHeartRate(value) {
+      heartRateElement.textContent = value;
+      
+      // 根据值设置颜色
+      if (value < 60 || value > 100) {
+        heartRateElement.className = 'metric-value metric-warning';
+      } else if (value > 120) {
+        heartRateElement.className = 'metric-value metric-danger';
+      } else {
+        heartRateElement.className = 'metric-value metric-normal';
       }
       
-      services.forEach((service, index) => {
-        const serviceItem = document.createElement('div');
-        serviceItem.className = 'service-item';
-        serviceItem.setAttribute('data-index', index);
-        
-        // 格式化UUID显示（短格式或名称）
-        let displayUuid = service.uuid;
-        if (displayUuid.length > 8) {
-          const shortUuid = displayUuid.substring(4, 8);
-          
-          // 预定义服务的友好名称
-          const knownServices = {
-            '1800': 'GAP 通用访问',
-            '1801': 'GATT 属性',
-            '180a': '设备信息',
-            '180d': '心率',
-            '180f': '电池',
-            '1810': '血压',
-            '181c': '用户数据',
-            'ffe0': 'HM-10/BLE'
-          };
-          
-          displayUuid = `${knownServices[shortUuid] || displayUuid} (${shortUuid})`;
+      // 更新图表数据
+      addDataToHistory('heartRate', value);
+      updateChart('heartRate');
+    }
+    
+    // 更新血氧
+    function updateSpo2(value) {
+      spo2Element.textContent = value;
+      
+      if (value < 95) {
+        spo2Element.className = 'metric-value metric-warning';
+      } else if (value < 90) {
+        spo2Element.className = 'metric-value metric-danger';
+      } else {
+        spo2Element.className = 'metric-value metric-normal';
+      }
+      
+      addDataToHistory('spo2', value);
+      updateChart('spo2');
+    }
+    
+    // 更新疲劳指数
+    function updateFatigueIndex(value) {
+      fatigueIndexElement.textContent = value;
+      
+      if (value > 50) {
+        fatigueIndexElement.className = 'metric-value metric-warning';
+      } else if (value > 75) {
+        fatigueIndexElement.className = 'metric-value metric-danger';
+      } else {
+        fatigueIndexElement.className = 'metric-value metric-normal';
+      }
+      
+      addDataToHistory('fatigueIndex', value);
+      updateChart('fatigue');
+    }
+    
+    // 更新收缩压
+    function updateSystolic(value) {
+      const diastolic = healthData.diastolic.length > 0 ? healthData.diastolic[healthData.diastolic.length - 1] : '--';
+      bloodPressureElement.textContent = `${value}/${diastolic}`;
+      
+      addDataToHistory('systolic', value);
+      updateChart('bp');
+    }
+    
+    // 更新舒张压
+    function updateDiastolic(value) {
+      const systolic = healthData.systolic.length > 0 ? healthData.systolic[healthData.systolic.length - 1] : '--';
+      bloodPressureElement.textContent = `${systolic}/${value}`;
+      
+      if (systolic != '--') {
+        if (systolic > 140 || value > 90) {
+          bloodPressureElement.className = 'metric-value metric-danger';
+        } else if (systolic > 130 || value > 85) {
+          bloodPressureElement.className = 'metric-value metric-warning';
+        } else {
+          bloodPressureElement.className = 'metric-value metric-normal';
         }
-        
-        serviceItem.textContent = `${displayUuid}`;
-        serviceItem.addEventListener('click', () => {
-          // 取消选择其他服务
-          document.querySelectorAll('.service-item').forEach(item => {
-            item.classList.remove('selected');
-          });
-          
-          serviceItem.classList.add('selected');
-          selectedService = services[index];
-          loadCharacteristics(selectedService);
-        });
-        
-        serviceList.appendChild(serviceItem);
+      }
+      
+      addDataToHistory('diastolic', value);
+      updateChart('bp');
+    }
+    
+    // 添加数据到历史记录
+    function addDataToHistory(key, value) {
+      healthData[key].push(value);
+      if (healthData[key].length > maxDataPoints) {
+        healthData[key].shift();
+      }
+    }
+    
+    // 初始化图表
+    function initCharts() {
+      // 心率图表
+      charts.heartRate = new Chart(document.getElementById('heartRateChart'), {
+        type: 'line',
+        data: {
+          labels: Array(maxDataPoints).fill(''),
+          datasets: [{
+            data: Array(maxDataPoints).fill(null),
+            borderColor: '#e74c3c',
+            borderWidth: 2,
+            tension: 0.4,
+            pointRadius: 0
+          }]
+        },
+        options: getChartOptions()
+      });
+      
+      // 血氧图表
+      charts.spo2 = new Chart(document.getElementById('spo2Chart'), {
+        type: 'line',
+        data: {
+          labels: Array(maxDataPoints).fill(''),
+          datasets: [{
+            data: Array(maxDataPoints).fill(null),
+            borderColor: '#3498db',
+            borderWidth: 2,
+            tension: 0.4,
+            pointRadius: 0
+          }]
+        },
+        options: getChartOptions()
+      });
+      
+      // 疲劳指数图表
+      charts.fatigue = new Chart(document.getElementById('fatigueChart'), {
+        type: 'line',
+        data: {
+          labels: Array(maxDataPoints).fill(''),
+          datasets: [{
+            data: Array(maxDataPoints).fill(null),
+            borderColor: '#f39c12',
+            borderWidth: 2,
+            tension: 0.4,
+            pointRadius: 0
+          }]
+        },
+        options: getChartOptions()
+      });
+      
+      // 血压图表
+      charts.bp = new Chart(document.getElementById('bpChart'), {
+        type: 'line',
+        data: {
+          labels: Array(maxDataPoints).fill(''),
+          datasets: [
+            {
+              data: Array(maxDataPoints).fill(null),
+              borderColor: '#9b59b6',
+              borderWidth: 2,
+              tension: 0.4,
+              pointRadius: 0
+            },
+            {
+              data: Array(maxDataPoints).fill(null),
+              borderColor: '#16a085',
+              borderWidth: 2,
+              tension: 0.4,
+              pointRadius: 0
+            }
+          ]
+        },
+        options: getChartOptions()
       });
     }
     
-    // 显示特征值列表
-    function displayCharacteristics(characteristicList, characteristics) {
-      characteristicList.innerHTML = '';
-      if (characteristics.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'characteristic-item';
-        empty.textContent = '未找到特征值';
-        characteristicList.appendChild(empty);
-        subscribeBtn.disabled = true;
-        readBtn.disabled = true;
-        return;
-      }
-      
-      characteristics.forEach((characteristic, index) => {
-        const characteristicItem = document.createElement('div');
-        characteristicItem.className = 'characteristic-item';
-        characteristicItem.setAttribute('data-index', index);
-        
-        // 格式化UUID显示（短格式或名称）
-        let displayUuid = characteristic.uuid;
-        if (displayUuid.length > 8) {
-          const shortUuid = displayUuid.substring(4, 8);
-          
-          // 预定义特征值的友好名称
-          const knownCharacteristics = {
-            '2a00': '设备名称',
-            '2a01': '外观',
-            '2a02': '外围隐私标志',
-            '2a03': '重新连接地址',
-            '2a04': '外围首选连接参数',
-            '2a05': '服务更改',
-            '2a06': '警报级别',
-            '2a07': '发送警报',
-            '2a19': '电池电量',
-            '2a1c': '温度测量',
-            '2a29': '制造商名称',
-            '2a24': '型号',
-            '2a23': '系统ID',
-            '2a25': '序列号',
-            '2a26': '固件版本',
-            '2a27': '硬件版本',
-            '2a28': '软件版本',
-            'ffe1': 'HM-10/BLE 数据'
-          };
-          
-          displayUuid = `${knownCharacteristics[shortUuid] || displayUuid} (${shortUuid})`;
-        }
-        
-        characteristicItem.textContent = displayUuid;
-        
-        // 添加属性标签
-        const props = characteristic.properties;
-        const propContainer = document.createElement('div');
-        propContainer.style.marginTop = '3px';
-        
-        if (props.read) {
-          const badge = document.createElement('span');
-          badge.className = 'property-badge';
-          badge.textContent = '可读';
-          propContainer.appendChild(badge);
-        }
-        
-        if (props.write) {
-          const badge = document.createElement('span');
-          badge.className = 'property-badge';
-          badge.textContent = '可写';
-          propContainer.appendChild(badge);
-        }
-        
-        if (props.notify) {
-          const badge = document.createElement('span');
-          badge.className = 'property-badge';
-          badge.textContent = '通知';
-          propContainer.appendChild(badge);
-        }
-        
-        if (props.indicate) {
-          const badge = document.createElement('span');
-          badge.className = 'property-badge';
-          badge.textContent = '指示';
-          propContainer.appendChild(badge);
-        }
-        
-        characteristicItem.appendChild(propContainer);
-        
-        characteristicItem.addEventListener('click', () => {
-          // 取消选择其他特征值
-          document.querySelectorAll('.characteristic-item').forEach(item => {
-            item.classList.remove('selected');
-          });
-          
-          characteristicItem.classList.add('selected');
-          selectedCharacteristic = characteristics[index];
-          
-          // 只有支持读取或通知的特征值才启用按钮
-          readBtn.disabled = !selectedCharacteristic.properties.read;
-          subscribeBtn.disabled = !selectedCharacteristic.properties.notify && !selectedCharacteristic.properties.indicate;
-          
-          log(`已选择特征值: ${selectedCharacteristic.uuid}`, 'info');
-        });
-        
-        characteristicList.appendChild(characteristicItem);
-      });
-    }
-    
-    // 加载特征值
-    async function loadCharacteristics(service) {
-      try {
-        log(`正在加载服务 ${service.uuid} 的特征值...`, 'info');
-        characteristics = await service.getCharacteristics();
-        log(`找到 ${characteristics.length} 个特征值`, 'info');
-        displayCharacteristics(characteristicList, characteristics);
-      } catch (error) {
-        log(`加载特征值失败: ${error.message}`, 'error');
-        // 清空特征值列表
-        characteristicList.innerHTML = '';
-        const errorItem = document.createElement('div');
-        errorItem.className = 'characteristic-item';
-        errorItem.textContent = `加载失败: ${error.message}`;
-        characteristicList.appendChild(errorItem);
-      }
-    }
-    
-    // 将ArrayBuffer转换为十六进制字符串
-    function bufferToHex(buffer) {
-      return [...new Uint8Array(buffer)]
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join(' ');
-    }
-    
-    // 处理接收到的数据
-    function parseReceivedData(dataBuffer) {
-      try {
-        // 尝试解析为UTF-8文本
-        const decoder = new TextDecoder('utf-8');
-        const text = decoder.decode(dataBuffer);
-        
-        // 检查是否是有效的UTF-8文本
-        const isPrintable = /^[\x20-\x7E\n\r\t\p{L}\p{N}\p{P}\p{S}]+$/u.test(text);
-        
-        if (isPrintable) {
-          return {
-            text,
-            hex: bufferToHex(dataBuffer),
-            isText: true
-          };
-        }
-      } catch (e) {
-        console.log('不是有效的UTF-8文本:', e);
-      }
-      
-      // 默认返回十六进制表示
+    // 图表配置选项
+    function getChartOptions() {
       return {
-        text: null,
-        hex: bufferToHex(dataBuffer),
-        isText: false
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            enabled: false
+          }
+        },
+        scales: {
+          x: {
+            display: false
+          },
+          y: {
+            display: false,
+            beginAtZero: false
+          }
+        },
+        animation: {
+          duration: 500
+        }
       };
     }
-
-    // 事件监听
-    clearBtn.addEventListener('click', () => {
-      clearLog();
-      log('日志已清空', 'info');
-    });
     
-    exportBtn.addEventListener('click', exportData);
-    
-    readBtn.addEventListener('click', async () => {
-      if (!selectedCharacteristic || !selectedCharacteristic.properties.read) {
-        log('请选择支持读取的特征值', 'error');
-        return;
+    // 更新图表数据
+    function updateChart(type) {
+      switch (type) {
+        case 'heartRate':
+          charts.heartRate.data.datasets[0].data = [...healthData.heartRate];
+          charts.heartRate.update();
+          break;
+        case 'spo2':
+          charts.spo2.data.datasets[0].data = [...healthData.spo2];
+          charts.spo2.update();
+          break;
+        case 'fatigue':
+          charts.fatigue.data.datasets[0].data = [...healthData.fatigueIndex];
+          charts.fatigue.update();
+          break;
+        case 'bp':
+          charts.bp.data.datasets[0].data = [...healthData.systolic];
+          charts.bp.data.datasets[1].data = [...healthData.diastolic];
+          charts.bp.update();
+          break;
       }
-      
+    }
+    
+    // 连接设备
+    async function connectDevice() {
       try {
-        readBtn.disabled = true;
-        readBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 读取中...';
+        addLog('正在打开设备选择对话框...');
         
-        log(`正在读取特征值 ${selectedCharacteristic.uuid}...`, 'info');
+        // 请求蓝牙设备（使用你的ESP32设备的服务UUID）
+        const serviceUUID = "12345678-1234-5678-1234-56789abcdef0";
+        const characteristicUUID = "6d68ef10-1f3a-11ee-be56-0242ac120002"; // 通知特征UUID
         
-        // 使用带重试的读取
-        const value = await readCharacteristicWithRetry(selectedCharacteristic);
-        
-        const parsedData = parseReceivedData(value.buffer);
-        
-        if (parsedData.isText) {
-          log(`读取成功: ${parsedData.text}`, 'info');
-          log(`十六进制: ${parsedData.hex}`, 'info');
-        } else {
-          const hexDiv = document.createElement('div');
-          hexDiv.className = 'hex-view';
-          hexDiv.textContent = parsedData.hex;
-          
-          log(`读取成功 (二进制数据):`, 'info');
-          const lastChild = output.lastChild;
-          lastChild.appendChild(document.createElement('br'));
-          lastChild.appendChild(hexDiv);
-        }
-      } catch (error) {
-        log(`读取失败: ${error.message}`, 'error');
-      } finally {
-        readBtn.disabled = false;
-        readBtn.innerHTML = '<i class="bi bi-arrow-down-circle"></i> 读取数据';
-      }
-    });
-    
-    subscribeBtn.addEventListener('click', async () => {
-      if (!selectedCharacteristic || (!selectedCharacteristic.properties.notify && !selectedCharacteristic.properties.indicate)) {
-        log('请选择支持通知的特征值', 'error');
-        return;
-      }
-      
-      try {
-        // 判断按钮当前状态
-        const isSubscribing = subscribeBtn.textContent.includes('订阅');
-        
-        if (isSubscribing) {
-          // 开始订阅
-          subscribeBtn.disabled = true;
-          subscribeBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 订阅中...';
-          
-          log(`正在订阅特征值 ${selectedCharacteristic.uuid} 的通知...`, 'info');
-          
-          // 添加通知事件监听器
-          selectedCharacteristic.addEventListener('characteristicvaluechanged', handleNotification);
-          
-          // 开始通知，带重试机制
-          let retries = 0;
-          while (retries < 3) {
-            try {
-              await selectedCharacteristic.startNotifications();
-              log('通知订阅成功，现在可以接收数据', 'info');
-              
-              // 更改按钮文字和样式
-              subscribeBtn.innerHTML = '<i class="bi bi-bell-slash"></i> 取消订阅';
-              subscribeBtn.style.backgroundColor = 'var(--warning-color)';
-              break;
-            } catch (error) {
-              retries++;
-              if (error.message.includes('GATT Server is disconnected')) {
-                log('订阅时GATT服务器断开，尝试重新连接...', 'warning');
-                try {
-                  await connectWithRetry();
-                  // 重新获取特征值
-                  const newService = await server.getPrimaryService(selectedService.uuid);
-                  selectedService = newService;
-                  const newCharacteristics = await newService.getCharacteristics();
-                  for (const newChar of newCharacteristics) {
-                    if (newChar.uuid === selectedCharacteristic.uuid) {
-                      selectedCharacteristic = newChar;
-                      break;
-                    }
-                  }
-                  // 如果已重试3次仍失败
-                  if (retries === 3) throw error;
-                } catch (e) {
-                  if (retries === 3) throw error;
-                }
-              } else {
-                if (retries === 3) throw error;
-                await new Promise(resolve => setTimeout(resolve, 500));
-              }
-            }
-          }
-        } else {
-          // 取消订阅
-          subscribeBtn.disabled = true;
-          subscribeBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 取消中...';
-          
-          // 停止通知
-          await selectedCharacteristic.stopNotifications();
-          selectedCharacteristic.removeEventListener('characteristicvaluechanged', handleNotification);
-          log('已取消通知订阅', 'info');
-          
-          // 更改按钮文字和样式
-          subscribeBtn.innerHTML = '<i class="bi bi-bell"></i> 订阅通知';
-          subscribeBtn.style.backgroundColor = 'var(--success-color)';
-        }
-      } catch (error) {
-        const action = subscribeBtn.textContent.includes('订阅') ? '订阅' : '取消订阅';
-        log(`${action}失败: ${error.message}`, 'error');
-        // 重置按钮状态
-        subscribeBtn.innerHTML = '<i class="bi bi-bell"></i> 订阅通知';
-        subscribeBtn.style.backgroundColor = 'var(--success-color)';
-      } finally {
-        subscribeBtn.disabled = false;
-      }
-    });
-    
-    aboutBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      alert('通用蓝牙数据接收器 v3.0\n\n一个用于接收各种蓝牙设备数据的Web应用\n\n使用Web Bluetooth API构建\n\n支持任意蓝牙设备连接和数据接收');
-    });
-
-    connectBtn.addEventListener('click', async () => {
-      try {
-        clearLog();
-        connectBtn.disabled = true;
-        connectBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 连接中...';
-        log('正在打开设备选择弹窗...', 'info');
-
-        // 准备蓝牙设备请求选项
-        let requestOptions = {};
-        const filterType = document.querySelector('input[name="filterType"]:checked').value;
-
-        if (filterType === 'all') {
-          requestOptions = {
-            acceptAllDevices: true
-          };
-        } else if (filterType === 'name') {
-          const name = nameFilter.value.trim();
-          if (!name) {
-            log('请输入设备名称', 'error');
-            connectBtn.disabled = false;
-            connectBtn.innerHTML = '<i class="bi bi-bluetooth"></i> 连接蓝牙设备';
-            return;
-          }
-          requestOptions = {
-            filters: [{ namePrefix: name }]
-          };
-        }
-
-        log('请在弹窗中选择蓝牙设备...', 'info');
-        device = await navigator.bluetooth.requestDevice(requestOptions);
-
-        log(`已选择设备: ${device.name || '未命名设备'}`, 'info');
-        log('正在连接到设备...', 'info');
+        device = await navigator.bluetooth.requestDevice({
+          filters: [
+            { services: [serviceUUID] }
+          ]
+        });
         
         // 更新设备信息
-        deviceName.textContent = device.name || '未命名设备';
+        deviceName.textContent = device.name || 'ESP32-C3-BLE';
         deviceId.textContent = device.id;
         
-        // 显示设备信息卡片
-        deviceInfoCard.style.display = 'block';
-
-        // 设置设备断开连接监听
-        device.addEventListener('gattserverdisconnected', onDisconnected);
-
-        // 连接到设备，添加重试机制
-        await connectWithRetry();
+        // 设置设备断开事件监听
+        device.addEventListener('gattserverdisconnected', onDisconnect);
         
-        // 获取所有服务
-        try {
-          services = await server.getPrimaryServices();
-          log(`发现 ${services.length} 个服务`, 'info');
-          
-          // 更新服务数量信息
-          serviceCount.textContent = services.length;
-          
-          // 显示服务卡片
-          serviceCard.style.display = 'block';
-          
-          // 显示服务列表
-          displayServices(serviceList, services);
-        } catch (serviceError) {
-          log(`获取服务失败: ${serviceError.message}`, 'error');
-          // 尝试重新连接并获取服务
-          log('尝试重新连接...', 'warning');
-          await connectWithRetry();
-          services = await server.getPrimaryServices();
-          log(`重试后发现 ${services.length} 个服务`, 'info');
-          
-          serviceCount.textContent = services.length;
-          serviceCard.style.display = 'block';
-          displayServices(serviceList, services);
+        addLog('正在连接到设备...');
+        server = await device.gatt.connect();
+        
+        addLog('正在获取服务...');
+        const service = await server.getPrimaryService(serviceUUID);
+        
+        addLog('正在获取通知特征...');
+        notifyCharacteristic = await service.getCharacteristic(characteristicUUID);
+        
+        // 检查是否支持通知
+        if (!notifyCharacteristic.properties.notify) {
+          throw new Error('设备不支持通知功能');
         }
         
-        // 更新连接状态
-        updateConnectionStatus(true);
-        disconnectBtn.disabled = false;
-      } catch (error) {
-        console.error(error);
+        // 开始监听通知
+        await notifyCharacteristic.startNotifications();
+        notifyCharacteristic.addEventListener('characteristicvaluechanged', handleNotifications);
         
-        if (error.name === 'NotFoundError') {
-          log('用户取消了设备选择', 'error');
-        } else if (error.message.includes('Bluetooth adapter not available')) {
-          log('蓝牙适配器不可用。请确保您的设备蓝牙已开启。', 'error');
-        } else if (error.message.includes('GATT Server is disconnected')) {
-          log('GATT服务器已断开连接，尝试重新连接...', 'error');
+        addLog('开始监听设备数据通知');
+        updateConnectionUI(true);
+        
+      } catch (error) {
+        addLog(`连接错误: ${error.message}`, 'error');
+        console.error('连接错误:', error);
+        
+        // 尝试清理连接状态
+        if (notifyCharacteristic) {
           try {
-            await connectWithRetry();
-            log('重新连接成功', 'info');
-            updateConnectionStatus(true);
-            disconnectBtn.disabled = false;
-          } catch (reconnectError) {
-            log(`重新连接失败: ${reconnectError.message}`, 'error');
-            updateConnectionStatus(false);
-          }
-        } else {
-          log(`连接错误: ${error.message}`, 'error');
+            await notifyCharacteristic.stopNotifications();
+          } catch (e) {}
         }
-        
-        if (!device || !device.gatt.connected) {
-          updateConnectionStatus(false);
-        }
-      } finally {
-        connectBtn.disabled = false;
-        connectBtn.innerHTML = '<i class="bi bi-bluetooth"></i> 连接蓝牙设备';
-      }
-    });
-
-    disconnectBtn.addEventListener('click', async () => {
-      try {
-        disconnectBtn.disabled = true;
-        disconnectBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 断开中...';
         
         if (device && device.gatt.connected) {
-          await device.gatt.disconnect();
-          log('已手动断开设备连接', 'info');
-          updateConnectionStatus(false);
+          device.gatt.disconnect();
         }
-      } catch (error) {
-        log(`断开连接出错: ${error.message}`, 'error');
-      } finally {
-        disconnectBtn.disabled = true;
-        disconnectBtn.innerHTML = '<i class="bi bi-x-circle-fill"></i> 断开连接';
+        
+        updateConnectionUI(false);
       }
-    });
-
-    // 添加重连机制
-    async function connectWithRetry(maxRetries = 3) {
-      let retries = 0;
-      
-      while (retries < maxRetries) {
+    }
+    
+    // 断开连接
+    function disconnectDevice() {
+      if (device && device.gatt.connected) {
         try {
-          log(`连接尝试 ${retries + 1}/${maxRetries}...`, retries > 0 ? 'warning' : 'info');
-          server = await device.gatt.connect();
-          log('已连接到GATT服务器', 'info');
-          return;
-        } catch (error) {
-          retries++;
-          if (retries >= maxRetries) {
-            throw new Error(`连接失败，已尝试 ${maxRetries} 次: ${error.message}`);
+          if (notifyCharacteristic) {
+            notifyCharacteristic.removeEventListener('characteristicvaluechanged', handleNotifications);
+            notifyCharacteristic.stopNotifications()
+              .catch(e => console.error('停止通知时出错:', e));
           }
           
-          log(`连接失败: ${error.message}，${retries < maxRetries ? '正在重试...' : ''}`, 'warning');
-          
-          // 等待一段时间再重试
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-    }
-
-    // 断开连接处理函数
-    function onDisconnected() {
-      log('设备连接已断开', 'error');
-      disconnectBtn.disabled = true;
-      connectBtn.disabled = false;
-      connectBtn.innerHTML = '<i class="bi bi-bluetooth"></i> 连接蓝牙设备';
-      updateConnectionStatus(false);
-      
-      // 提供重连选项
-      const reconnectDiv = document.createElement('div');
-      reconnectDiv.className = 'data-row warning';
-      
-      const badge = document.createElement('span');
-      badge.className = 'badge badge-warning';
-      badge.textContent = '系统';
-      
-      const reconnectBtn = document.createElement('button');
-      reconnectBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> 重新连接';
-      reconnectBtn.style.marginLeft = '10px';
-      reconnectBtn.style.padding = '3px 10px';
-      reconnectBtn.style.fontSize = '12px';
-      reconnectBtn.style.backgroundColor = 'var(--warning-color)';
-      
-      reconnectDiv.appendChild(badge);
-      reconnectDiv.appendChild(document.createTextNode(' 设备连接已断开，是否重新连接？'));
-      reconnectDiv.appendChild(reconnectBtn);
-      
-      output.appendChild(reconnectDiv);
-      
-      if (autoScroll) {
-        output.scrollTop = output.scrollHeight;
-      }
-      
-      // 点击重连按钮
-      reconnectBtn.addEventListener('click', async () => {
-        reconnectBtn.disabled = true;
-        reconnectBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 重连中...';
-        
-        try {
-          await connectWithRetry();
-          
-          // 尝试重新获取服务
-          services = await server.getPrimaryServices();
-          serviceCount.textContent = services.length;
-          serviceCard.style.display = 'block';
-          displayServices(serviceList, services);
-          
-          updateConnectionStatus(true);
-          disconnectBtn.disabled = false;
-          
-          log('重新连接成功', 'info');
+          device.gatt.disconnect();
+          addLog('已断开设备连接');
         } catch (error) {
-          log(`重新连接失败: ${error.message}`, 'error');
-        } finally {
-          reconnectDiv.remove();
-        }
-      });
-    }
-
-    // 当特征值读取失败时重试
-    async function readCharacteristicWithRetry(characteristic, maxRetries = 2) {
-      let retries = 0;
-      
-      while (retries <= maxRetries) {
-        try {
-          return await characteristic.readValue();
-        } catch (error) {
-          retries++;
-          if (error.message.includes('GATT Server is disconnected')) {
-            log('读取时GATT服务器断开，尝试重新连接...', 'warning');
-            
-            // 尝试重新连接
-            try {
-              await connectWithRetry();
-              // 重新获取特征值
-              const newService = await server.getPrimaryService(selectedService.uuid);
-              selectedService = newService;
-              const newCharacteristics = await newService.getCharacteristics();
-              for (const newChar of newCharacteristics) {
-                if (newChar.uuid === characteristic.uuid) {
-                  characteristic = newChar;
-                  selectedCharacteristic = newChar;
-                  break;
-                }
-              }
-            } catch (reconnectError) {
-              if (retries >= maxRetries) {
-                throw new Error('重新连接失败');
-              }
-            }
-          } else if (retries >= maxRetries) {
-            throw error;
-          } else {
-            // 其他错误，等待后重试
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
+          addLog(`断开连接出错: ${error.message}`, 'error');
+          console.error('断开连接出错:', error);
         }
       }
-    }
-
-    // 通知处理函数
-    function handleNotification(event) {
-      const value = event.target.value;
       
-      const parsedData = parseReceivedData(value.buffer);
-      
-      if (parsedData.isText) {
-        log(`收到数据: ${parsedData.text}`);
-      } else {
-        const hexDiv = document.createElement('div');
-        hexDiv.className = 'hex-view';
-        hexDiv.textContent = parsedData.hex;
-        
-        log(`收到二进制数据:`, 'normal');
-        const lastChild = output.lastChild;
-        lastChild.appendChild(document.createElement('br'));
-        lastChild.appendChild(hexDiv);
-      }
+      updateConnectionUI(false);
     }
-
-    // 在页面底部添加这段代码以监测和恢复蓝牙适配器状态变化
-    navigator.bluetooth?.addEventListener('availabilitychanged', e => {
-      const isAvailable = e.value;
-      if (isAvailable) {
-        log('蓝牙适配器已可用', 'info');
-        connectBtn.disabled = false;
-      } else {
-        log('蓝牙适配器不可用', 'warning');
-        if (device && device.gatt.connected) {
-          log('由于蓝牙适配器不可用，设备已断开连接', 'error');
-          updateConnectionStatus(false);
-        }
+    
+    // 处理设备断开连接
+    function onDisconnect() {
+      notifyCharacteristic = null;
+      addLog('设备连接已断开', 'error');
+      updateConnectionUI(false);
+    }
+    
+    // 处理通知
+    function handleNotifications(event) {
+      const value = new TextDecoder().decode(event.target.value);
+      addLog(`收到数据: ${value}`);
+      parseNotification(value);
+    }
+    
+    // 初始化页面
+    function initPage() {
+      addLog('欢迎使用ESP32健康监测仪', 'info');
+      
+      // 检查浏览器兼容性
+      if (!navigator.bluetooth) {
+        addLog('您的浏览器不支持Web Bluetooth API', 'error');
+        connectBtn.disabled = true;
+        connectBtn.innerHTML = '<i class="bi bi-x-circle"></i> 浏览器不支持蓝牙';
+        return;
       }
-    });
+      
+      // 初始化图表
+      initCharts();
+      
+      // 绑定按钮事件
+      connectBtn.addEventListener('click', connectDevice);
+      disconnectBtn.addEventListener('click', disconnectDevice);
+      
+      addLog('准备就绪，请点击"连接设备"按钮');
+    }
+    
+    // 页面加载时初始化
+    window.addEventListener('load', initPage);
   </script>
 </body>
 </html>
