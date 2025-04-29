@@ -8,11 +8,54 @@
       font-family: Arial, sans-serif;
       padding: 20px;
       background-color: #f5f5f5;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .control-panel {
+      margin: 15px 0;
+      padding: 15px;
+      background: #fff;
+      border-radius: 5px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
     }
     button {
       padding: 10px 20px;
-      font-size: 18px;
-      margin-bottom: 20px;
+      font-size: 16px;
+      cursor: pointer;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    #disconnectBtn {
+      background-color: #f44336;
+    }
+    #disconnectBtn:hover {
+      background-color: #d32f2f;
+    }
+    #filterOptions {
+      margin-bottom: 15px;
+    }
+    .filter-option {
+      margin-right: 15px;
     }
     #output {
       white-space: pre-wrap;
@@ -20,146 +63,211 @@
       padding: 15px;
       border-radius: 5px;
       min-height: 150px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.1);
-      overflow-y: auto;
       max-height: 300px;
+      overflow-y: auto;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
     }
-    .error {
-      color: #d32f2f;
+    .status-connected {
+      color: green;
+      font-weight: bold;
+    }
+    .status-disconnected {
+      color: red;
       font-weight: bold;
     }
     .info {
       color: #1976d2;
     }
-    .status {
-      margin-bottom: 10px;
-      font-style: italic;
+    .error {
+      color: #d32f2f;
+    }
+    .data-row {
+      border-bottom: 1px solid #eee;
+      padding: 5px 0;
     }
   </style>
 </head>
 <body>
 
-  <h1>蓝牙数据接收器</h1>
-  <div class="status" id="statusText">检查蓝牙兼容性...</div>
-  <button id="connectBtn">连接蓝牙设备</button>
-  <button id="disconnectBtn" disabled>断开连接</button>
-  <div id="output">等待连接...</div>
+  <div class="header">
+    <h1>蓝牙数据接收器</h1>
+    <div id="connectionStatus" class="status-disconnected">未连接</div>
+  </div>
+
+  <div class="control-panel">
+    <h2>设备连接</h2>
+    <div id="filterOptions">
+      <label class="filter-option">
+        <input type="radio" name="filterType" value="all" checked> 显示所有设备
+      </label>
+      <label class="filter-option">
+        <input type="radio" name="filterType" value="name"> 按名称过滤
+        <input type="text" id="nameFilter" placeholder="设备名称" disabled>
+      </label>
+      <label class="filter-option">
+        <input type="radio" name="filterType" value="service"> 按服务过滤
+      </label>
+    </div>
+    <div class="button-group">
+      <button id="connectBtn">连接蓝牙设备</button>
+      <button id="disconnectBtn" disabled>断开连接</button>
+    </div>
+  </div>
+
+  <h2>接收数据</h2>
+  <div id="output">等待连接蓝牙设备...</div>
 
   <script>
     const connectBtn = document.getElementById('connectBtn');
     const disconnectBtn = document.getElementById('disconnectBtn');
     const output = document.getElementById('output');
-    const statusText = document.getElementById('statusText');
+    const connectionStatus = document.getElementById('connectionStatus');
+    const nameFilter = document.getElementById('nameFilter');
+    const filterRadios = document.querySelectorAll('input[name="filterType"]');
 
     let device, server, characteristic;
-
-    // 检查浏览器是否支持蓝牙API
-    function checkBluetoothCompatibility() {
-      if (!navigator.bluetooth) {
-        statusText.innerHTML = '<span class="error">您的浏览器不支持蓝牙功能。请使用Chrome、Edge或其他支持Web Bluetooth API的浏览器。</span>';
-        connectBtn.disabled = true;
-        return false;
-      }
-
-      if (!window.isSecureContext) {
-        statusText.innerHTML = '<span class="error">页面需要在安全上下文中运行 (HTTPS 或 localhost)。</span>';
-        connectBtn.disabled = true;
-        return false;
-      }
-
-      statusText.innerHTML = '<span class="info">浏览器支持蓝牙功能，请确保您的设备已开启蓝牙。</span>';
-      return true;
-    }
-
-    // 记录消息到输出区域
-    function log(message, isError = false) {
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString();
-      const msgClass = isError ? 'error' : '';
-      const currentOutput = output.innerHTML;
-      output.innerHTML = `${currentOutput}<div class="${msgClass}">[${timeStr}] ${message}</div>`;
-      // 自动滚动到底部
-      output.scrollTop = output.scrollHeight;
-    }
-
-    // 初始化
-    window.addEventListener('load', () => {
-      checkBluetoothCompatibility();
+    
+    // 启用/禁用名称过滤器输入框
+    filterRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        nameFilter.disabled = radio.value !== 'name';
+      });
     });
 
+    // 记录消息到输出
+    function log(message, type = 'normal') {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString();
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `data-row ${type}`;
+      messageDiv.textContent = `[${timeStr}] ${message}`;
+      output.appendChild(messageDiv);
+      output.scrollTop = output.scrollHeight; // 自动滚动到底部
+    }
+
+    // 清空输出
+    function clearLog() {
+      output.innerHTML = '';
+    }
+
+    // 更新连接状态
+    function updateConnectionStatus(connected) {
+      if (connected) {
+        connectionStatus.textContent = '已连接';
+        connectionStatus.className = 'status-connected';
+      } else {
+        connectionStatus.textContent = '未连接';
+        connectionStatus.className = 'status-disconnected';
+      }
+    }
+
     connectBtn.addEventListener('click', async () => {
-      if (!checkBluetoothCompatibility()) return;
-      
-      output.innerHTML = ''; // 清空之前的输出
       try {
+        clearLog();
         connectBtn.disabled = true;
-        log('正在请求蓝牙设备...');
+        log('正在打开设备选择弹窗...');
 
-        // 如果用户取消了设备选择，会抛出 NotFoundError
-        device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb'] // 改成你自己的服务UUID
-        });
+        // 准备蓝牙设备请求选项
+        let requestOptions = {};
+        const filterType = document.querySelector('input[name="filterType"]:checked').value;
 
-        log(`已选设备: ${device.name || '未命名设备'}`);
-        log('正在连接...');
+        if (filterType === 'all') {
+          requestOptions = {
+            acceptAllDevices: true,
+            optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
+          };
+        } else if (filterType === 'name') {
+          const name = nameFilter.value.trim();
+          if (!name) {
+            log('请输入设备名称', 'error');
+            connectBtn.disabled = false;
+            return;
+          }
+          requestOptions = {
+            filters: [{ namePrefix: name }],
+            optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
+          };
+        } else if (filterType === 'service') {
+          requestOptions = {
+            filters: [{ services: ['0000ffe0-0000-1000-8000-00805f9b34fb'] }]
+          };
+        }
 
-        // 监听设备断开连接事件
+        log('请在弹窗中选择蓝牙设备...');
+        device = await navigator.bluetooth.requestDevice(requestOptions);
+
+        log(`已选择设备: ${device.name || '未命名设备'}`, 'info');
+        log('正在连接到设备...');
+
+        // 设置设备断开连接监听
         device.addEventListener('gattserverdisconnected', () => {
-          log('设备连接已断开', true);
+          log('设备连接已断开', 'error');
           disconnectBtn.disabled = true;
           connectBtn.disabled = false;
+          updateConnectionStatus(false);
         });
 
+        // 连接到设备
         server = await device.gatt.connect();
         log('已连接到GATT服务器');
         
-        try {
-          const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
-          log('已获取服务');
-          characteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
-          log('已获取特征值');
+        // 获取服务和特征
+        const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
+        log('已获取服务');
+        
+        characteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
+        log('已获取特征值');
 
-          await characteristic.startNotifications();
-          log('已开始监听数据', false);
+        // 启动通知
+        await characteristic.startNotifications();
+        log('已开始接收数据通知');
+        updateConnectionStatus(true);
 
-          characteristic.addEventListener('characteristicvaluechanged', event => {
-            const value = event.target.value;
-            const decoder = new TextDecoder('utf-8');
-            const text = decoder.decode(value);
-            log(`收到数据: ${text}`);
-          });
+        // 监听数据变化
+        characteristic.addEventListener('characteristicvaluechanged', event => {
+          const value = event.target.value;
+          const decoder = new TextDecoder('utf-8');
+          const text = decoder.decode(value);
+          log(`收到数据: ${text}`);
+        });
 
-          disconnectBtn.disabled = false;
-        } catch (serviceError) {
-          log(`无法访问服务或特征值: ${serviceError.message}`, true);
-          if (server && server.connected) {
-            await device.gatt.disconnect();
-          }
-          throw serviceError;
-        }
+        disconnectBtn.disabled = false;
       } catch (error) {
         console.error(error);
         
         if (error.name === 'NotFoundError') {
-          log('用户取消了设备选择', true);
-        } 
-        else if (error.message.includes('Bluetooth adapter not available')) {
-          log('蓝牙适配器不可用。请检查您的设备蓝牙是否已开启。', true);
+          log('用户取消了设备选择', 'error');
+        } else if (error.message.includes('Bluetooth adapter not available')) {
+          log('蓝牙适配器不可用。请确保您的设备蓝牙已开启。', 'error');
+        } else {
+          log(`连接错误: ${error.message}`, 'error');
         }
-        else {
-          log(`发生错误: ${error.message}`, true);
-        }
+        
+        updateConnectionStatus(false);
       } finally {
         connectBtn.disabled = false;
       }
     });
 
     disconnectBtn.addEventListener('click', async () => {
-      if (device && device.gatt.connected) {
-        await device.gatt.disconnect();
-        log('已手动断开设备连接');
+      try {
+        if (device && device.gatt.connected) {
+          await device.gatt.disconnect();
+          log('已手动断开设备连接');
+          updateConnectionStatus(false);
+        }
+      } catch (error) {
+        log(`断开连接出错: ${error.message}`, 'error');
+      } finally {
         disconnectBtn.disabled = true;
+      }
+    });
+
+    // 页面加载时检查浏览器兼容性
+    window.addEventListener('load', () => {
+      if (!navigator.bluetooth) {
+        log('您的浏览器不支持Web Bluetooth API。请使用Chrome、Edge或其他支持Web Bluetooth的浏览器。', 'error');
+        connectBtn.disabled = true;
       }
     });
   </script>
