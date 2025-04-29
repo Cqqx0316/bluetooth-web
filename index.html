@@ -1,279 +1,86 @@
- -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蓝牙通信</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f0f4f8;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            color: #2c3e50;
-            text-align: center;
-        }
-        .btn {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 10px 0;
-            width: 100%;
-            transition: background-color 0.3s;
-        }
-        .btn:hover {
-            background-color: #2980b9;
-        }
-        .btn:disabled {
-            background-color: #95a5a6;
-            cursor: not-allowed;
-        }
-        .status {
-            margin: 15px 0;
-            padding: 10px;
-            border-radius: 5px;
-            background-color: #ecf0f1;
-        }
-        #deviceInfo {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            display: none;
-        }
-        textarea {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
-            border: 1px solid #ddd;
-            resize: vertical;
-            box-sizing: border-box;
-        }
-        .input-group {
-            margin: 15px 0;
-        }
-        #receivedData {
-            background-color: #f9f9f9;
-            min-height: 100px;
-            max-height: 200px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>蓝牙数据接收器</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+    #output {
+      white-space: pre-wrap;
+      background: #fff;
+      padding: 15px;
+      border-radius: 5px;
+      min-height: 150px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>蓝牙设备通信</h1>
-        
-        <div class="status" id="statusText">
-            未连接蓝牙设备
-        </div>
-        
-        <button id="connectBtn" class="btn">连接蓝牙设备</button>
-        <button id="disconnectBtn" class="btn" disabled>断开连接</button>
-        
-        <div id="deviceInfo">
-            <h3>已连接设备</h3>
-            <div id="deviceName">设备名称: </div>
-            <div id="deviceId">设备ID: </div>
-            
-            <div class="input-group">
-                <h3>发送数据</h3>
-                <textarea id="sendData" placeholder="输入要发送的数据"></textarea>
-                <button id="sendBtn" class="btn">发送</button>
-            </div>
-            
-            <div class="input-group">
-                <h3>接收数据</h3>
-                <div id="receivedData" class="textarea"></div>
-                <button id="clearBtn" class="btn">清除</button>
-            </div>
-        </div>
-    </div>
 
-    <script>
-        // DOM 元素
-        const connectBtn = document.getElementById('connectBtn');
-        const disconnectBtn = document.getElementById('disconnectBtn');
-        const statusText = document.getElementById('statusText');
-        const deviceInfo = document.getElementById('deviceInfo');
-        const deviceName = document.getElementById('deviceName');
-        const deviceId = document.getElementById('deviceId');
-        const sendData = document.getElementById('sendData');
-        const sendBtn = document.getElementById('sendBtn');
-        const receivedData = document.getElementById('receivedData');
-        const clearBtn = document.getElementById('clearBtn');
+  <h1>蓝牙数据接收器</h1>
+  <button id="connectBtn">连接蓝牙设备</button>
+  <button id="disconnectBtn" disabled>断开连接</button>
+  <div id="output">等待连接...</div>
 
-        // 全局变量
-        let bluetoothDevice = null;
-        let bluetoothServer = null;
-        let bluetoothService = null;
-        let rxCharacteristic = null;
-        let txCharacteristic = null;
-        
-        // 蓝牙 UART 服务和特征值的 UUID (适用于许多BLE设备，如某些Arduino蓝牙模块)
-        // 注意: 您可能需要根据您的特定蓝牙设备更改这些UUID
-        const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-        const UART_TX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // 用于发送到设备
-        const UART_RX_CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // 用于接收设备数据
+  <script>
+    const connectBtn = document.getElementById('connectBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    const output = document.getElementById('output');
 
-        // 检查浏览器是否支持Web Bluetooth API
-        if ('bluetooth' in navigator) {
-            connectBtn.addEventListener('click', connectToDevice);
-            disconnectBtn.addEventListener('click', disconnectFromDevice);
-            sendBtn.addEventListener('click', sendDataToDevice);
-            clearBtn.addEventListener('click', clearReceivedData);
-        } else {
-            statusText.textContent = '您的浏览器不支持Web Bluetooth API，请使用Chrome或基于Chromium的浏览器';
-            connectBtn.disabled = true;
-        }
+    let device, server, characteristic;
 
-        // 连接到蓝牙设备
-        async function connectToDevice() {
-            try {
-                statusText.textContent = '正在搜索蓝牙设备...';
-                
-                // 请求用户选择一个蓝牙设备
-                bluetoothDevice = await navigator.bluetooth.requestDevice({
-                    // 可以使用filters来过滤特定设备
-                    // filters: [{ services: [UART_SERVICE_UUID] }],
-                    
-                    // 或者接受所有设备
-                    acceptAllDevices: true,
-                    optionalServices: [UART_SERVICE_UUID]
-                });
+    connectBtn.addEventListener('click', async () => {
+      try {
+        connectBtn.disabled = true;
+        output.textContent = '正在请求蓝牙设备...';
 
-                statusText.textContent = '正在连接到设备...';
-                
-                // 监听设备断开连接事件
-                bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
-                
-                // 连接到GATT服务器
-                bluetoothServer = await bluetoothDevice.gatt.connect();
-                
-                // 获取UART服务
-                bluetoothService = await bluetoothServer.getPrimaryService(UART_SERVICE_UUID);
-                
-                // 获取发送和接收特征值
-                txCharacteristic = await bluetoothService.getCharacteristic(UART_TX_CHARACTERISTIC_UUID);
-                rxCharacteristic = await bluetoothService.getCharacteristic(UART_RX_CHARACTERISTIC_UUID);
-                
-                // 启用接收通知
-                await rxCharacteristic.startNotifications();
-                rxCharacteristic.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged);
-                
-                // 更新UI
-                statusText.textContent = '已连接到设备';
-                deviceName.textContent = `设备名称: ${bluetoothDevice.name || '未知'}`;
-                deviceId.textContent = `设备ID: ${bluetoothDevice.id}`;
-                deviceInfo.style.display = 'block';
-                connectBtn.disabled = true;
-                disconnectBtn.disabled = false;
-                
-            } catch (error) {
-                console.error('连接失败:', error);
-                statusText.textContent = `连接失败: ${error.message}`;
-            }
-        }
+        device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb'] // 改成你自己的服务UUID
+        });
 
-        // 处理设备断开连接
-        function onDisconnected(event) {
-            const device = event.target;
-            console.log(`设备 ${device.name || 'Unknown'} 已断开连接`);
-            resetUI();
-        }
+        output.textContent = `已选设备: ${device.name}\n正在连接...`;
 
-        // 主动断开设备连接
-        async function disconnectFromDevice() {
-            if (bluetoothDevice && bluetoothDevice.gatt.connected) {
-                await bluetoothDevice.gatt.disconnect();
-            } else {
-                resetUI();
-            }
-        }
+        server = await device.gatt.connect();
+        const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
+        characteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
 
-        // 重置UI状态
-        function resetUI() {
-            bluetoothDevice = null;
-            bluetoothServer = null;
-            bluetoothService = null;
-            rxCharacteristic = null;
-            txCharacteristic = null;
-            
-            statusText.textContent = '未连接蓝牙设备';
-            deviceInfo.style.display = 'none';
-            connectBtn.disabled = false;
-            disconnectBtn.disabled = true;
-        }
+        characteristic.startNotifications();
+        output.textContent += '\n已连接，开始接收数据...\n';
 
-        // 发送数据到设备
-        async function sendDataToDevice() {
-            if (!txCharacteristic) {
-                statusText.textContent = '设备未连接，无法发送数据';
-                return;
-            }
-            
-            const data = sendData.value;
-            if (!data) {
-                statusText.textContent = '请输入要发送的数据';
-                return;
-            }
-            
-            try {
-                // 将字符串转换为ArrayBuffer
-                const encoder = new TextEncoder();
-                const dataBuffer = encoder.encode(data);
-                
-                await txCharacteristic.writeValue(dataBuffer);
-                statusText.textContent = '数据发送成功';
-                
-                // 在接收区显示发送的数据（用于记录）
-                appendToReceivedData(`[发送] ${data}`);
-                
-                // 清空输入框
-                sendData.value = '';
-            } catch (error) {
-                console.error('发送数据失败:', error);
-                statusText.textContent = `发送数据失败: ${error.message}`;
-            }
-        }
+        characteristic.addEventListener('characteristicvaluechanged', event => {
+          const value = event.target.value;
+          const decoder = new TextDecoder('utf-8');
+          const text = decoder.decode(value);
+          output.textContent += `收到数据: ${text}\n`;
+        });
 
-        // 处理接收到的数据
-        function handleCharacteristicValueChanged(event) {
-            const value = event.target.value;
-            const decoder = new TextDecoder('utf-8');
-            const data = decoder.decode(value);
-            
-            appendToReceivedData(`[接收] ${data}`);
-        }
+        disconnectBtn.disabled = false;
+      } catch (error) {
+        console.error(error);
+        output.textContent = '发生错误: ' + error;
+      } finally {
+        connectBtn.disabled = false;
+      }
+    });
 
-        // 添加数据到接收区
-        function appendToReceivedData(text) {
-            const timestamp = new Date().toLocaleTimeString();
-            receivedData.innerHTML += `[${timestamp}] ${text}\n`;
-            receivedData.scrollTop = receivedData.scrollHeight;
-        }
+    disconnectBtn.addEventListener('click', async () => {
+      if (device && device.gatt.connected) {
+        await device.gatt.disconnect();
+        output.textContent += '\n设备已断开连接。\n';
+        disconnectBtn.disabled = true;
+      }
+    });
+  </script>
 
-        // 清除接收区数据
-        function clearReceivedData() {
-            receivedData.innerHTML = '';
-        }
-    </script>
 </body>
 </html>
