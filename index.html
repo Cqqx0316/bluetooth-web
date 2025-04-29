@@ -1,10 +1,10 @@
-index.html -->
+\index\index.html -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>蓝牙数据接收器</title>
+  <title>通用蓝牙数据接收器</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
     :root {
@@ -438,7 +438,7 @@ index.html -->
       display: inline-block;
     }
     
-    .tooltip .tooltiptext {
+    .tooltiptext {
       visibility: hidden;
       width: 180px;
       background-color: #333;
@@ -461,6 +461,53 @@ index.html -->
       opacity: 1;
     }
     
+    .service-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background-color: white;
+    }
+    
+    .characteristic-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background-color: white;
+    }
+    
+    .service-item, .characteristic-item {
+      padding: 8px 12px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    
+    .service-item:hover, .characteristic-item:hover {
+      background-color: #f5f5f5;
+    }
+    
+    .service-item.selected, .characteristic-item.selected {
+      background-color: #e3f2fd;
+      font-weight: 500;
+    }
+    
+    .service-item:last-child, .characteristic-item:last-child {
+      border-bottom: none;
+    }
+    
+    .property-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      margin-left: 5px;
+      background-color: #e9ecef;
+      color: #495057;
+    }
+    
     @media (max-width: 767px) {
       .header {
         flex-direction: column;
@@ -476,13 +523,19 @@ index.html -->
         flex-direction: column;
       }
     }
+
+    .hex-view {
+      font-family: monospace;
+      word-wrap: break-word;
+      color: #0366d6;
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="app-title">
       <i class="bi bi-bluetooth"></i>
-      <h1>蓝牙数据接收器</h1>
+      <h1>通用蓝牙数据接收器</h1>
     </div>
     <div id="connectionStatus" class="connection-status disconnected">
       <span class="pulse"></span>
@@ -501,20 +554,16 @@ index.html -->
             <div class="filter-option">
               <input type="radio" id="filterAll" name="filterType" value="all" checked>
               <label for="filterAll">显示所有设备</label>
+              <div class="tooltip">
+                <i class="bi bi-info-circle"></i>
+                <span class="tooltiptext">连接任何可用的蓝牙设备</span>
+              </div>
             </div>
             <div class="filter-option">
               <input type="radio" id="filterName" name="filterType" value="name">
               <label for="filterName">按名称过滤</label>
               <div class="name-filter-container" id="nameFilterContainer" style="display: none;">
                 <input type="text" id="nameFilter" placeholder="输入设备名称" disabled>
-              </div>
-            </div>
-            <div class="filter-option">
-              <input type="radio" id="filterService" name="filterType" value="service">
-              <label for="filterService">按服务过滤</label>
-              <div class="tooltip">
-                <i class="bi bi-info-circle"></i>
-                <span class="tooltiptext">使用标准蓝牙服务UUID进行过滤</span>
               </div>
             </div>
           </div>
@@ -524,6 +573,25 @@ index.html -->
             </button>
             <button id="disconnectBtn" disabled>
               <i class="bi bi-x-circle-fill"></i> 断开连接
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card mt-4" id="serviceCard" style="margin-top: 20px; display: none;">
+        <div class="card-header">
+          <h2><i class="bi bi-list-ul"></i> 服务与特征值</h2>
+        </div>
+        <div class="card-body">
+          <div id="serviceInfo">
+            <h3 style="font-size: 16px; margin-bottom: 10px;">可用服务：</h3>
+            <div id="serviceList" class="service-list"></div>
+            
+            <h3 style="font-size: 16px; margin: 15px 0 10px 0;">特征值：</h3>
+            <div id="characteristicList" class="characteristic-list"></div>
+            
+            <button id="subscribeBtn" class="mt-3" style="margin-top: 15px; background-color: var(--success-color);" disabled>
+              <i class="bi bi-bell"></i> 订阅通知
             </button>
           </div>
         </div>
@@ -547,9 +615,14 @@ index.html -->
             <button id="clearBtn" class="btn-clear">
               <i class="bi bi-trash"></i> 清空日志
             </button>
-            <button id="exportBtn" class="btn-export">
-              <i class="bi bi-download"></i> 导出数据
-            </button>
+            <div style="display: flex; gap: 10px;">
+              <button id="readBtn" class="btn-read" disabled>
+                <i class="bi bi-arrow-down-circle"></i> 读取数据
+              </button>
+              <button id="exportBtn" class="btn-export">
+                <i class="bi bi-download"></i> 导出数据
+              </button>
+            </div>
           </div>
           <div id="output">
             <div class="data-row info">
@@ -558,10 +631,24 @@ index.html -->
           </div>
         </div>
       </div>
+      
+      <div class="card mt-4" id="deviceInfoCard" style="margin-top: 20px; display: none;">
+        <div class="card-header">
+          <h2><i class="bi bi-info-circle"></i> 设备信息</h2>
+        </div>
+        <div class="card-body">
+          <div id="deviceInfo">
+            <div><strong>设备名称：</strong> <span id="deviceName">-</span></div>
+            <div><strong>设备ID：</strong> <span id="deviceId">-</span></div>
+            <div><strong>服务数量：</strong> <span id="serviceCount">-</span></div>
+            <div><strong>连接状态：</strong> <span id="deviceConnected">-</span></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="footer">
-      <p>蓝牙数据接收器 v2.0 | <a href="#" id="aboutBtn">关于</a></p>
+      <p>通用蓝牙数据接收器 v3.0 | <a href="#" id="aboutBtn">关于</a></p>
     </div>
   </div>
 
@@ -570,6 +657,8 @@ index.html -->
     const disconnectBtn = document.getElementById('disconnectBtn');
     const clearBtn = document.getElementById('clearBtn');
     const exportBtn = document.getElementById('exportBtn');
+    const readBtn = document.getElementById('readBtn');
+    const subscribeBtn = document.getElementById('subscribeBtn');
     const output = document.getElementById('output');
     const connectionStatus = document.getElementById('connectionStatus');
     const nameFilter = document.getElementById('nameFilter');
@@ -577,10 +666,24 @@ index.html -->
     const filterRadios = document.querySelectorAll('input[name="filterType"]');
     const autoScrollSwitch = document.getElementById('autoScrollSwitch');
     const aboutBtn = document.getElementById('aboutBtn');
+    const serviceList = document.getElementById('serviceList');
+    const characteristicList = document.getElementById('characteristicList');
+    const serviceCard = document.getElementById('serviceCard');
+    const deviceInfoCard = document.getElementById('deviceInfoCard');
+    
+    // 设备信息相关元素
+    const deviceName = document.getElementById('deviceName');
+    const deviceId = document.getElementById('deviceId');
+    const serviceCount = document.getElementById('serviceCount');
+    const deviceConnected = document.getElementById('deviceConnected');
 
-    let device, server, characteristic;
+    let device, server;
+    let selectedService = null;
+    let selectedCharacteristic = null;
     let receivedData = [];
     let autoScroll = true;
+    let services = [];
+    let characteristics = [];
     
     // 启用/禁用名称过滤器输入框
     filterRadios.forEach(radio => {
@@ -680,10 +783,231 @@ index.html -->
       if (connected) {
         connectionStatus.className = 'connection-status connected';
         connectionStatus.querySelector('.status-text').textContent = '已连接';
+        deviceConnected.textContent = '已连接';
       } else {
         connectionStatus.className = 'connection-status disconnected';
         connectionStatus.querySelector('.status-text').textContent = '未连接';
+        deviceConnected.textContent = '未连接';
+        
+        // 隐藏服务卡片
+        serviceCard.style.display = 'none';
+        deviceInfoCard.style.display = 'none';
+        
+        // 禁用相关按钮
+        readBtn.disabled = true;
+        subscribeBtn.disabled = true;
       }
+    }
+    
+    // 显示服务列表
+    function displayServices(serviceList, services) {
+      serviceList.innerHTML = '';
+      if (services.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'service-item';
+        empty.textContent = '未找到服务';
+        serviceList.appendChild(empty);
+        return;
+      }
+      
+      services.forEach((service, index) => {
+        const serviceItem = document.createElement('div');
+        serviceItem.className = 'service-item';
+        serviceItem.setAttribute('data-index', index);
+        
+        // 格式化UUID显示（短格式或名称）
+        let displayUuid = service.uuid;
+        if (displayUuid.length > 8) {
+          const shortUuid = displayUuid.substring(4, 8);
+          
+          // 预定义服务的友好名称
+          const knownServices = {
+            '1800': 'GAP 通用访问',
+            '1801': 'GATT 属性',
+            '180a': '设备信息',
+            '180d': '心率',
+            '180f': '电池',
+            '1810': '血压',
+            '181c': '用户数据',
+            'ffe0': 'HM-10/BLE'
+          };
+          
+          displayUuid = `${knownServices[shortUuid] || displayUuid} (${shortUuid})`;
+        }
+        
+        serviceItem.textContent = `${displayUuid}`;
+        serviceItem.addEventListener('click', () => {
+          // 取消选择其他服务
+          document.querySelectorAll('.service-item').forEach(item => {
+            item.classList.remove('selected');
+          });
+          
+          serviceItem.classList.add('selected');
+          selectedService = services[index];
+          loadCharacteristics(selectedService);
+        });
+        
+        serviceList.appendChild(serviceItem);
+      });
+    }
+    
+    // 显示特征值列表
+    function displayCharacteristics(characteristicList, characteristics) {
+      characteristicList.innerHTML = '';
+      if (characteristics.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'characteristic-item';
+        empty.textContent = '未找到特征值';
+        characteristicList.appendChild(empty);
+        subscribeBtn.disabled = true;
+        readBtn.disabled = true;
+        return;
+      }
+      
+      characteristics.forEach((characteristic, index) => {
+        const characteristicItem = document.createElement('div');
+        characteristicItem.className = 'characteristic-item';
+        characteristicItem.setAttribute('data-index', index);
+        
+        // 格式化UUID显示（短格式或名称）
+        let displayUuid = characteristic.uuid;
+        if (displayUuid.length > 8) {
+          const shortUuid = displayUuid.substring(4, 8);
+          
+          // 预定义特征值的友好名称
+          const knownCharacteristics = {
+            '2a00': '设备名称',
+            '2a01': '外观',
+            '2a02': '外围隐私标志',
+            '2a03': '重新连接地址',
+            '2a04': '外围首选连接参数',
+            '2a05': '服务更改',
+            '2a06': '警报级别',
+            '2a07': '发送警报',
+            '2a19': '电池电量',
+            '2a1c': '温度测量',
+            '2a29': '制造商名称',
+            '2a24': '型号',
+            '2a23': '系统ID',
+            '2a25': '序列号',
+            '2a26': '固件版本',
+            '2a27': '硬件版本',
+            '2a28': '软件版本',
+            'ffe1': 'HM-10/BLE 数据'
+          };
+          
+          displayUuid = `${knownCharacteristics[shortUuid] || displayUuid} (${shortUuid})`;
+        }
+        
+        characteristicItem.textContent = displayUuid;
+        
+        // 添加属性标签
+        const props = characteristic.properties;
+        const propContainer = document.createElement('div');
+        propContainer.style.marginTop = '3px';
+        
+        if (props.read) {
+          const badge = document.createElement('span');
+          badge.className = 'property-badge';
+          badge.textContent = '可读';
+          propContainer.appendChild(badge);
+        }
+        
+        if (props.write) {
+          const badge = document.createElement('span');
+          badge.className = 'property-badge';
+          badge.textContent = '可写';
+          propContainer.appendChild(badge);
+        }
+        
+        if (props.notify) {
+          const badge = document.createElement('span');
+          badge.className = 'property-badge';
+          badge.textContent = '通知';
+          propContainer.appendChild(badge);
+        }
+        
+        if (props.indicate) {
+          const badge = document.createElement('span');
+          badge.className = 'property-badge';
+          badge.textContent = '指示';
+          propContainer.appendChild(badge);
+        }
+        
+        characteristicItem.appendChild(propContainer);
+        
+        characteristicItem.addEventListener('click', () => {
+          // 取消选择其他特征值
+          document.querySelectorAll('.characteristic-item').forEach(item => {
+            item.classList.remove('selected');
+          });
+          
+          characteristicItem.classList.add('selected');
+          selectedCharacteristic = characteristics[index];
+          
+          // 只有支持读取或通知的特征值才启用按钮
+          readBtn.disabled = !selectedCharacteristic.properties.read;
+          subscribeBtn.disabled = !selectedCharacteristic.properties.notify && !selectedCharacteristic.properties.indicate;
+          
+          log(`已选择特征值: ${selectedCharacteristic.uuid}`, 'info');
+        });
+        
+        characteristicList.appendChild(characteristicItem);
+      });
+    }
+    
+    // 加载特征值
+    async function loadCharacteristics(service) {
+      try {
+        log(`正在加载服务 ${service.uuid} 的特征值...`, 'info');
+        characteristics = await service.getCharacteristics();
+        log(`找到 ${characteristics.length} 个特征值`, 'info');
+        displayCharacteristics(characteristicList, characteristics);
+      } catch (error) {
+        log(`加载特征值失败: ${error.message}`, 'error');
+        // 清空特征值列表
+        characteristicList.innerHTML = '';
+        const errorItem = document.createElement('div');
+        errorItem.className = 'characteristic-item';
+        errorItem.textContent = `加载失败: ${error.message}`;
+        characteristicList.appendChild(errorItem);
+      }
+    }
+    
+    // 将ArrayBuffer转换为十六进制字符串
+    function bufferToHex(buffer) {
+      return [...new Uint8Array(buffer)]
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join(' ');
+    }
+    
+    // 处理接收到的数据
+    function parseReceivedData(dataBuffer) {
+      try {
+        // 尝试解析为UTF-8文本
+        const decoder = new TextDecoder('utf-8');
+        const text = decoder.decode(dataBuffer);
+        
+        // 检查是否是有效的UTF-8文本
+        const isPrintable = /^[\x20-\x7E\n\r\t\p{L}\p{N}\p{P}\p{S}]+$/u.test(text);
+        
+        if (isPrintable) {
+          return {
+            text,
+            hex: bufferToHex(dataBuffer),
+            isText: true
+          };
+        }
+      } catch (e) {
+        console.log('不是有效的UTF-8文本:', e);
+      }
+      
+      // 默认返回十六进制表示
+      return {
+        text: null,
+        hex: bufferToHex(dataBuffer),
+        isText: false
+      };
     }
 
     // 事件监听
@@ -694,9 +1018,109 @@ index.html -->
     
     exportBtn.addEventListener('click', exportData);
     
+    readBtn.addEventListener('click', async () => {
+      if (!selectedCharacteristic || !selectedCharacteristic.properties.read) {
+        log('请选择支持读取的特征值', 'error');
+        return;
+      }
+      
+      try {
+        readBtn.disabled = true;
+        readBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 读取中...';
+        
+        log(`正在读取特征值 ${selectedCharacteristic.uuid}...`, 'info');
+        const value = await selectedCharacteristic.readValue();
+        
+        const parsedData = parseReceivedData(value.buffer);
+        
+        if (parsedData.isText) {
+          log(`读取成功: ${parsedData.text}`, 'info');
+          log(`十六进制: ${parsedData.hex}`, 'info');
+        } else {
+          const hexDiv = document.createElement('div');
+          hexDiv.className = 'hex-view';
+          hexDiv.textContent = parsedData.hex;
+          
+          log(`读取成功 (二进制数据):`, 'info');
+          const lastChild = output.lastChild;
+          lastChild.appendChild(document.createElement('br'));
+          lastChild.appendChild(hexDiv);
+        }
+      } catch (error) {
+        log(`读取失败: ${error.message}`, 'error');
+      } finally {
+        readBtn.disabled = false;
+        readBtn.innerHTML = '<i class="bi bi-arrow-down-circle"></i> 读取数据';
+      }
+    });
+    
+    subscribeBtn.addEventListener('click', async () => {
+      if (!selectedCharacteristic || (!selectedCharacteristic.properties.notify && !selectedCharacteristic.properties.indicate)) {
+        log('请选择支持通知的特征值', 'error');
+        return;
+      }
+      
+      try {
+        // 判断按钮当前状态
+        const isSubscribing = subscribeBtn.textContent.includes('订阅');
+        
+        if (isSubscribing) {
+          // 开始订阅
+          subscribeBtn.disabled = true;
+          subscribeBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 订阅中...';
+          
+          log(`正在订阅特征值 ${selectedCharacteristic.uuid} 的通知...`, 'info');
+          
+          // 添加通知事件监听器
+          selectedCharacteristic.addEventListener('characteristicvaluechanged', event => {
+            const value = event.target.value;
+            
+            const parsedData = parseReceivedData(value.buffer);
+            
+            if (parsedData.isText) {
+              log(`收到数据: ${parsedData.text}`);
+            } else {
+              const hexDiv = document.createElement('div');
+              hexDiv.className = 'hex-view';
+              hexDiv.textContent = parsedData.hex;
+              
+              log(`收到二进制数据:`, 'normal');
+              const lastChild = output.lastChild;
+              lastChild.appendChild(document.createElement('br'));
+              lastChild.appendChild(hexDiv);
+            }
+          });
+          
+          // 开始通知
+          await selectedCharacteristic.startNotifications();
+          log('通知订阅成功，现在可以接收数据', 'info');
+          
+          // 更改按钮文字和样式
+          subscribeBtn.innerHTML = '<i class="bi bi-bell-slash"></i> 取消订阅';
+          subscribeBtn.style.backgroundColor = 'var(--warning-color)';
+        } else {
+          // 取消订阅
+          subscribeBtn.disabled = true;
+          subscribeBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 取消中...';
+          
+          // 停止通知
+          await selectedCharacteristic.stopNotifications();
+          log('已取消通知订阅', 'info');
+          
+          // 更改按钮文字和样式
+          subscribeBtn.innerHTML = '<i class="bi bi-bell"></i> 订阅通知';
+          subscribeBtn.style.backgroundColor = 'var(--success-color)';
+        }
+      } catch (error) {
+        log(`${isSubscribing ? '订阅' : '取消订阅'}失败: ${error.message}`, 'error');
+      } finally {
+        subscribeBtn.disabled = false;
+      }
+    });
+    
     aboutBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      alert('蓝牙数据接收器 v2.0\n\n一个用于接收蓝牙设备数据的Web应用\n\n使用Web Bluetooth API构建');
+      alert('通用蓝牙数据接收器 v3.0\n\n一个用于接收各种蓝牙设备数据的Web应用\n\n使用Web Bluetooth API构建\n\n支持任意蓝牙设备连接和数据接收');
     });
 
     connectBtn.addEventListener('click', async () => {
@@ -712,8 +1136,7 @@ index.html -->
 
         if (filterType === 'all') {
           requestOptions = {
-            acceptAllDevices: true,
-            optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
+            acceptAllDevices: true
           };
         } else if (filterType === 'name') {
           const name = nameFilter.value.trim();
@@ -724,12 +1147,7 @@ index.html -->
             return;
           }
           requestOptions = {
-            filters: [{ namePrefix: name }],
-            optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
-          };
-        } else if (filterType === 'service') {
-          requestOptions = {
-            filters: [{ services: ['0000ffe0-0000-1000-8000-00805f9b34fb'] }]
+            filters: [{ namePrefix: name }]
           };
         }
 
@@ -738,6 +1156,13 @@ index.html -->
 
         log(`已选择设备: ${device.name || '未命名设备'}`, 'info');
         log('正在连接到设备...', 'info');
+        
+        // 更新设备信息
+        deviceName.textContent = device.name || '未命名设备';
+        deviceId.textContent = device.id;
+        
+        // 显示设备信息卡片
+        deviceInfoCard.style.display = 'block';
 
         // 设置设备断开连接监听
         device.addEventListener('gattserverdisconnected', () => {
@@ -752,26 +1177,21 @@ index.html -->
         server = await device.gatt.connect();
         log('已连接到GATT服务器', 'info');
         
-        // 获取服务和特征
-        const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
-        log('已获取服务', 'info');
+        // 获取所有服务
+        services = await server.getPrimaryServices();
+        log(`发现 ${services.length} 个服务`, 'info');
         
-        characteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
-        log('已获取特征值', 'info');
-
-        // 启动通知
-        await characteristic.startNotifications();
-        log('已开始接收数据通知', 'info');
+        // 更新服务数量信息
+        serviceCount.textContent = services.length;
+        
+        // 显示服务卡片
+        serviceCard.style.display = 'block';
+        
+        // 显示服务列表
+        displayServices(serviceList, services);
+        
+        // 更新连接状态
         updateConnectionStatus(true);
-
-        // 监听数据变化
-        characteristic.addEventListener('characteristicvaluechanged', event => {
-          const value = event.target.value;
-          const decoder = new TextDecoder('utf-8');
-          const text = decoder.decode(value);
-          log(`收到数据: ${text}`);
-        });
-
         disconnectBtn.disabled = false;
       } catch (error) {
         console.error(error);
