@@ -230,31 +230,57 @@
             }
         }
         
-        // 解析通知数据
+        // 解析通知数据 - 更健壮的版本
         function parseNotification(data) {
-            const value = data.trim();
-            
-            if (value.startsWith('心率：')) {
-                const heartRate = parseInt(value.replace('心率：', ''), 10);
-                heartRateElement.textContent = heartRate;
+            try {
+                const value = data.trim();
                 
-            } else if (value.startsWith('血氧：')) {
-                const spo2 = parseInt(value.replace('血氧：', ''), 10);
-                spo2Element.textContent = spo2;
+                // 记录我们尝试解析的数据
+                console.log("尝试解析:", value);
                 
-            } else if (value.startsWith('疲劳指数：')) {
-                const fatigue = parseInt(value.replace('疲劳指数：', ''), 10);
-                fatigueElement.textContent = fatigue;
-                
-            } else if (value.startsWith('收缩压：')) {
-                const systolic = parseInt(value.replace('收缩压：', ''), 10);
-                const diastolic = bloodPressureElement.textContent.split('/')[1] || '--';
-                bloodPressureElement.textContent = `${systolic}/${diastolic}`;
-                
-            } else if (value.startsWith('舒张压：')) {
-                const diastolic = parseInt(value.replace('舒张压：', ''), 10);
-                const systolic = bloodPressureElement.textContent.split('/')[0] || '--';
-                bloodPressureElement.textContent = `${systolic}/${diastolic}`;
+                if (value.includes('心率') || value.includes('心率：')) {
+                    const match = value.match(/\d+/);
+                    if (match) {
+                        const heartRate = parseInt(match[0], 10);
+                        heartRateElement.textContent = heartRate;
+                        addLog(`解析到心率: ${heartRate}`);
+                    }
+                } else if (value.includes('血氧') || value.includes('血氧：')) {
+                    const match = value.match(/\d+/);
+                    if (match) {
+                        const spo2 = parseInt(match[0], 10);
+                        spo2Element.textContent = spo2;
+                        addLog(`解析到血氧: ${spo2}`);
+                    }
+                } else if (value.includes('疲劳指数') || value.includes('疲劳指数：')) {
+                    const match = value.match(/\d+/);
+                    if (match) {
+                        const fatigue = parseInt(match[0], 10);
+                        fatigueElement.textContent = fatigue;
+                        addLog(`解析到疲劳指数: ${fatigue}`);
+                    }
+                } else if (value.includes('收缩压') || value.includes('收缩压：')) {
+                    const match = value.match(/\d+/);
+                    if (match) {
+                        const systolic = parseInt(match[0], 10);
+                        const diastolic = bloodPressureElement.textContent.split('/')[1] || '--';
+                        bloodPressureElement.textContent = `${systolic}/${diastolic}`;
+                        addLog(`解析到收缩压: ${systolic}`);
+                    }
+                } else if (value.includes('舒张压') || value.includes('舒张压：')) {
+                    const match = value.match(/\d+/);
+                    if (match) {
+                        const diastolic = parseInt(match[0], 10);
+                        const systolic = bloodPressureElement.textContent.split('/')[0] || '--';
+                        bloodPressureElement.textContent = `${systolic}/${diastolic}`;
+                        addLog(`解析到舒张压: ${diastolic}`);
+                    }
+                } else {
+                    // 尝试寻找任何匹配的数字模式
+                    addLog(`无法识别的数据格式: ${value}`);
+                }
+            } catch (error) {
+                addLog(`解析过程中出错: ${error.message}`);
             }
         }
         
