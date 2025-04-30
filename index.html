@@ -715,33 +715,27 @@
                     
                     // 更新UI
                     if (data.heartRate !== undefined) {
-                        updateHeartRate(data.heartRate);
+                        heartRateElement.textContent = data.heartRate;
                     }
                     
                     if (data.spo2 !== undefined) {
-                        updateSpo2(data.spo2);
+                        spo2Element.textContent = data.spo2;
                     }
                     
                     if (data.fatigue !== undefined) {
-                        updateFatigue(data.fatigue);
+                        fatigueElement.textContent = data.fatigue;
                     }
                     
-                    if (data.systolic !== undefined) {
-                        updateSystolic(data.systolic);
-                    }
-                    
-                    if (data.diastolic !== undefined) {
-                        updateDiastolic(data.diastolic);
+                    if (data.systolic !== undefined && data.diastolic !== undefined) {
+                        bloodPressureElement.textContent = `${data.systolic}/${data.diastolic}`;
                     }
                     
                 } catch (e) {
                     console.error('解析JSON出错:', e);
-                    addLog('JSON解析失败，仍显示原始数据', 'error');
                     // 发生错误时仍然显示原始数据
                 }
             } catch (error) {
                 console.error('处理通知错误:', error);
-                addLog('处理通知数据错误', 'error');
             }
         }
         
