@@ -4,14 +4,165 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ESP32健康数据接收器</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2ecc71;
+            --danger-color: #e74c3c;
+            --warning-color: #f39c12;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --gray-color: #6c757d;
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --border-radius: 10px;
+            --transition: all 0.3s ease;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1200px;
             margin: 0 auto;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        
+        .header h1 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--dark-color);
+            font-size: 28px;
+            font-weight: 600;
+        }
+        
+        .header h1 i {
+            color: var(--primary-color);
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            padding: 8px 15px;
+            border-radius: 20px;
+            background: var(--light-color);
+        }
+        
+        .status-connected {
+            color: var(--secondary-color);
+        }
+        
+        .status-disconnected {
+            color: var(--danger-color);
+        }
+        
+        .pulse {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .connected .pulse {
+            background-color: var(--secondary-color);
+        }
+        
+        .disconnected .pulse {
+            background-color: var(--danger-color);
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(0.8);
+                opacity: 0.8;
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(0.8);
+                opacity: 0.8;
+            }
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            overflow: hidden;
+            transition: var(--transition);
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            background-color: var(--light-color);
+        }
+        
+        .card-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+            color: var(--dark-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .card-header h2 i {
+            color: var(--primary-color);
+        }
+        
+        .card-body {
             padding: 20px;
         }
+        
         button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
             padding: 12px 24px;
             margin: 10px 0;
             background-color: #4CAF50;
@@ -20,16 +171,29 @@
             border-radius: 5px;
             cursor: pointer;
             font-size: 16px;
+            transition: var(--transition);
         }
+        
         button:disabled {
             background-color: #cccccc;
         }
+        
+        #connect {
+            background-color: var(--primary-color);
+        }
+        
+        button:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+        
         .status {
             margin: 20px 0;
             padding: 10px;
             background-color: #f0f0f0;
             border-left: 5px solid #4CAF50;
         }
+        
         .data-box {
             margin: 20px 0;
             padding: 15px;
@@ -37,19 +201,23 @@
             border: 1px solid #ddd;
             border-radius: 5px;
         }
+        
         .data-item {
             display: flex;
             margin: 10px 0;
             padding: 5px 0;
             border-bottom: 1px solid #eee;
         }
+        
         .data-label {
             font-weight: bold;
             width: 120px;
         }
+        
         .data-value {
             flex: 1;
         }
+        
         .raw-json {
             margin-top: 20px;
             padding: 10px;
@@ -60,43 +228,201 @@
             white-space: pre-wrap;
             word-break: break-all;
         }
+        
+        .log-container {
+            height: 150px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 15px;
+            background: #f8f9fa;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .log-item {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .log-time {
+            color: #666;
+            margin-right: 5px;
+            font-size: 12px;
+        }
+        
+        .log-info {
+            color: var(--primary-color);
+        }
+        
+        .log-error {
+            color: var(--danger-color);
+        }
+        
+        .health-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .metric-card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            overflow: hidden;
+            transition: var(--transition);
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .metric-icon {
+            font-size: 30px;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+        
+        .heart-rate-icon {
+            color: #e74c3c;
+        }
+        
+        .spo2-icon {
+            color: #3498db;
+        }
+        
+        .fatigue-icon {
+            color: #f39c12;
+        }
+        
+        .bp-icon {
+            color: #9b59b6;
+        }
+        
+        .metric-value {
+            font-size: 36px;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+        
+        .metric-label {
+            font-size: 16px;
+            color: var(--gray-color);
+            margin-bottom: 5px;
+        }
+        
+        .metric-normal {
+            color: var(--secondary-color);
+        }
+        
+        .metric-warning {
+            color: var(--warning-color);
+        }
+        
+        .metric-danger {
+            color: var(--danger-color);
+        }
+        
+        .sparkline {
+            height: 40px;
+            width: 100%;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
-    <h1>ESP32健康数据接收器</h1>
-    
-    <button id="connect">连接蓝牙设备</button>
-    
-    <div class="status">
-        <div>状态: <span id="connection-status">未连接</span></div>
-        <div>设备: <span id="device-name">--</span></div>
-    </div>
-    
-    <div class="data-box">
-        <h2>健康数据</h2>
-        <div class="data-item">
-            <div class="data-label">心率:</div>
-            <div class="data-value" id="heart-rate">--</div>
-        </div>
-        <div class="data-item">
-            <div class="data-label">血氧饱和度:</div>
-            <div class="data-value" id="spo2">--</div>
-        </div>
-        <div class="data-item">
-            <div class="data-label">疲劳指数:</div>
-            <div class="data-value" id="fatigue">--</div>
-        </div>
-        <div class="data-item">
-            <div class="data-label">血压:</div>
-            <div class="data-value" id="blood-pressure">--/--</div>
+    <div class="header">
+        <h1><i class="bi bi-heart-pulse-fill"></i> ESP32健康数据接收器</h1>
+        <div id="connectionStatus" class="connection-status disconnected">
+            <span class="pulse"></span>
+            <span id="connection-status" class="status-text">未连接</span>
         </div>
     </div>
     
-    <div>
-        <h2>原始JSON数据</h2>
-        <div class="raw-json" id="raw-data">等待数据...</div>
+    <div class="container">
+        <div class="left-panel">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="bi bi-bluetooth"></i> 设备连接</h2>
+                </div>
+                <div class="card-body">
+                    <button id="connect">
+                        <i class="bi bi-bluetooth"></i> 连接蓝牙设备
+                    </button>
+                    
+                    <div class="device-info">
+                        <div class="data-item">
+                            <div class="data-label">设备名称:</div>
+                            <div class="data-value" id="device-name">--</div>
+                        </div>
+                    </div>
+                    
+                    <h3 style="margin-top: 20px; font-size: 16px;">日志信息</h3>
+                    <div class="log-container" id="logContainer"></div>
+                </div>
+            </div>
+            
+            <div class="card" style="margin-top: 20px;">
+                <div class="card-header">
+                    <h2><i class="bi bi-code-slash"></i> 原始数据</h2>
+                </div>
+                <div class="card-body">
+                    <div class="raw-json" id="raw-data">等待数据...</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="right-panel">
+            <div class="health-metrics">
+                <div class="metric-card">
+                    <div class="metric-icon heart-rate-icon">
+                        <i class="bi bi-heart-pulse-fill"></i>
+                    </div>
+                    <div class="metric-label">心率</div>
+                    <div id="heart-rate" class="metric-value metric-normal">--</div>
+                    <div>每分钟心跳次数 (BPM)</div>
+                    <div class="sparkline" id="heartRateChart"></div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-icon spo2-icon">
+                        <i class="bi bi-droplet-fill"></i>
+                    </div>
+                    <div class="metric-label">血氧饱和度</div>
+                    <div id="spo2" class="metric-value metric-normal">--</div>
+                    <div>血液中氧气百分比 (%)</div>
+                    <div class="sparkline" id="spo2Chart"></div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-icon fatigue-icon">
+                        <i class="bi bi-battery-half"></i>
+                    </div>
+                    <div class="metric-label">疲劳指数</div>
+                    <div id="fatigue" class="metric-value metric-normal">--</div>
+                    <div>身体疲劳程度 (0-100)</div>
+                    <div class="sparkline" id="fatigueChart"></div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-icon bp-icon">
+                        <i class="bi bi-activity"></i>
+                    </div>
+                    <div class="metric-label">血压</div>
+                    <div id="blood-pressure" class="metric-value metric-normal">--/--</div>
+                    <div>收缩压/舒张压 (mmHg)</div>
+                    <div class="sparkline" id="bpChart"></div>
+                </div>
+            </div>
+        </div>
     </div>
     
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         // 蓝牙配置
         const SERVICE_UUID = "12345678-1234-5678-1234-56789abcdef0";
@@ -105,16 +431,204 @@
         // 获取DOM元素
         const connectButton = document.getElementById('connect');
         const statusElement = document.getElementById('connection-status');
+        const connectionStatus = document.getElementById('connectionStatus');
         const deviceNameElement = document.getElementById('device-name');
         const heartRateElement = document.getElementById('heart-rate');
         const spo2Element = document.getElementById('spo2');
         const fatigueElement = document.getElementById('fatigue');
         const bloodPressureElement = document.getElementById('blood-pressure');
         const rawDataElement = document.getElementById('raw-data');
+        const logContainer = document.getElementById('logContainer');
         
         // 全局变量
         let deviceObj = null;
         let characteristicObj = null;
+        let isConnected = false;
+        
+        // 健康数据历史记录
+        const maxDataPoints = 10;
+        const healthData = {
+            heartRate: Array(maxDataPoints).fill(null),
+            spo2: Array(maxDataPoints).fill(null),
+            fatigue: Array(maxDataPoints).fill(null),
+            systolic: Array(maxDataPoints).fill(null),
+            diastolic: Array(maxDataPoints).fill(null)
+        };
+        
+        // 图表对象
+        let charts = {};
+        
+        // 添加日志
+        function addLog(message, type = 'info') {
+            const logItem = document.createElement('div');
+            logItem.className = `log-item log-${type}`;
+            
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString();
+            
+            const logTime = document.createElement('span');
+            logTime.className = 'log-time';
+            logTime.textContent = `[${timeStr}] `;
+            
+            logItem.appendChild(logTime);
+            logItem.appendChild(document.createTextNode(message));
+            
+            logContainer.appendChild(logItem);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // 更新连接状态UI
+        function updateConnectionUI(connected) {
+            isConnected = connected;
+            
+            if (connected) {
+                connectionStatus.className = 'connection-status connected';
+                statusElement.textContent = '已连接';
+                statusElement.className = 'status-connected';
+                connectButton.textContent = '断开连接';
+            } else {
+                connectionStatus.className = 'connection-status disconnected';
+                statusElement.textContent = '未连接';
+                statusElement.className = 'status-disconnected';
+                connectButton.textContent = '连接蓝牙设备';
+                
+                if (!deviceObj) {
+                    deviceNameElement.textContent = '--';
+                }
+            }
+        }
+        
+        // 初始化图表
+        function initCharts() {
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false }
+                },
+                scales: {
+                    x: { display: false },
+                    y: { display: false, beginAtZero: false }
+                },
+                animation: { duration: 500 }
+            };
+            
+            // 心率图表
+            charts.heartRate = new Chart(document.getElementById('heartRateChart'), {
+                type: 'line',
+                data: {
+                    labels: Array(maxDataPoints).fill(''),
+                    datasets: [{
+                        data: healthData.heartRate,
+                        borderColor: '#e74c3c',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        fill: false
+                    }]
+                },
+                options: chartOptions
+            });
+            
+            // 血氧图表
+            charts.spo2 = new Chart(document.getElementById('spo2Chart'), {
+                type: 'line',
+                data: {
+                    labels: Array(maxDataPoints).fill(''),
+                    datasets: [{
+                        data: healthData.spo2,
+                        borderColor: '#3498db',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        fill: false
+                    }]
+                },
+                options: chartOptions
+            });
+            
+            // 疲劳指数图表
+            charts.fatigue = new Chart(document.getElementById('fatigueChart'), {
+                type: 'line',
+                data: {
+                    labels: Array(maxDataPoints).fill(''),
+                    datasets: [{
+                        data: healthData.fatigue,
+                        borderColor: '#f39c12',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        fill: false
+                    }]
+                },
+                options: chartOptions
+            });
+            
+            // 血压图表
+            charts.bp = new Chart(document.getElementById('bpChart'), {
+                type: 'line',
+                data: {
+                    labels: Array(maxDataPoints).fill(''),
+                    datasets: [
+                        {
+                            data: healthData.systolic,
+                            borderColor: '#9b59b6',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            fill: false
+                        },
+                        {
+                            data: healthData.diastolic,
+                            borderColor: '#16a085',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            fill: false
+                        }
+                    ]
+                },
+                options: chartOptions
+            });
+        }
+        
+        // 更新图表数据
+        function updateChart(type, value) {
+            // 添加新数据并删除旧数据
+            switch (type) {
+                case 'heartRate':
+                    healthData.heartRate.shift();
+                    healthData.heartRate.push(value);
+                    charts.heartRate.data.datasets[0].data = healthData.heartRate;
+                    charts.heartRate.update();
+                    break;
+                case 'spo2':
+                    healthData.spo2.shift();
+                    healthData.spo2.push(value);
+                    charts.spo2.data.datasets[0].data = healthData.spo2;
+                    charts.spo2.update();
+                    break;
+                case 'fatigue':
+                    healthData.fatigue.shift();
+                    healthData.fatigue.push(value);
+                    charts.fatigue.data.datasets[0].data = healthData.fatigue;
+                    charts.fatigue.update();
+                    break;
+                case 'systolic':
+                    healthData.systolic.shift();
+                    healthData.systolic.push(value);
+                    charts.bp.data.datasets[0].data = healthData.systolic;
+                    charts.bp.update();
+                    break;
+                case 'diastolic':
+                    healthData.diastolic.shift();
+                    healthData.diastolic.push(value);
+                    charts.bp.data.datasets[1].data = healthData.diastolic;
+                    charts.bp.update();
+                    break;
+            }
+        }
         
         // 连接按钮事件
         connectButton.addEventListener('click', async () => {
@@ -125,6 +639,7 @@
             
             try {
                 connectButton.disabled = true;
+                addLog('正在搜索设备...');
                 statusElement.textContent = "正在搜索设备...";
                 
                 // 请求蓝牙设备
@@ -137,33 +652,48 @@
                 });
                 
                 deviceNameElement.textContent = deviceObj.name || 'ESP32设备';
+                addLog(`已选择设备: ${deviceObj.name || 'ESP32设备'}`);
                 statusElement.textContent = "正在连接...";
                 
                 // 监听断开连接事件
                 deviceObj.addEventListener('gattserverdisconnected', onDisconnected);
                 
                 // 连接到设备
+                addLog('正在连接到GATT服务器...');
                 const server = await deviceObj.gatt.connect();
                 statusElement.textContent = "正在获取服务...";
+                addLog('已连接到GATT服务器');
+                
+                // 获取服务前等待一会儿
+                await new Promise(resolve => setTimeout(resolve, 500));
                 
                 // 获取服务
+                addLog('正在获取蓝牙服务...');
                 const service = await server.getPrimaryService(SERVICE_UUID);
                 statusElement.textContent = "正在获取特性...";
+                addLog('已获取蓝牙服务');
                 
                 // 获取特性
+                addLog('正在获取特征值...');
                 characteristicObj = await service.getCharacteristic(CHARACTERISTIC_UUID);
+                addLog('已获取特征值');
                 
                 // 启用通知
+                addLog('正在启动通知...');
                 await characteristicObj.startNotifications();
                 characteristicObj.addEventListener('characteristicvaluechanged', handleNotifications);
+                addLog('通知已启动，等待数据...');
                 
-                statusElement.textContent = "已连接，等待数据";
+                statusElement.textContent = "已连接";
                 connectButton.textContent = "断开连接";
                 connectButton.disabled = false;
                 
+                updateConnectionUI(true);
+                
             } catch (error) {
                 console.error("蓝牙连接错误:", error);
-                statusElement.textContent = `连接失败: ${error.message || error}`;
+                addLog(`连接失败: ${error.message || error}`, 'error');
+                statusElement.textContent = `连接失败`;
                 disconnect();
             }
         });
@@ -185,27 +715,112 @@
                     
                     // 更新UI
                     if (data.heartRate !== undefined) {
-                        heartRateElement.textContent = data.heartRate;
+                        updateHeartRate(data.heartRate);
                     }
                     
                     if (data.spo2 !== undefined) {
-                        spo2Element.textContent = data.spo2;
+                        updateSpo2(data.spo2);
                     }
                     
                     if (data.fatigue !== undefined) {
-                        fatigueElement.textContent = data.fatigue;
+                        updateFatigue(data.fatigue);
                     }
                     
-                    if (data.systolic !== undefined && data.diastolic !== undefined) {
-                        bloodPressureElement.textContent = `${data.systolic}/${data.diastolic}`;
+                    if (data.systolic !== undefined) {
+                        updateSystolic(data.systolic);
+                    }
+                    
+                    if (data.diastolic !== undefined) {
+                        updateDiastolic(data.diastolic);
                     }
                     
                 } catch (e) {
                     console.error('解析JSON出错:', e);
+                    addLog('JSON解析失败，仍显示原始数据', 'error');
                     // 发生错误时仍然显示原始数据
                 }
             } catch (error) {
                 console.error('处理通知错误:', error);
+                addLog('处理通知数据错误', 'error');
+            }
+        }
+        
+        // 更新心率
+        function updateHeartRate(value) {
+            heartRateElement.textContent = value;
+            
+            if (value < 60 || value > 100) {
+                heartRateElement.className = 'metric-value metric-warning';
+            } else if (value > 120) {
+                heartRateElement.className = 'metric-value metric-danger';
+            } else {
+                heartRateElement.className = 'metric-value metric-normal';
+            }
+            
+            updateChart('heartRate', value);
+        }
+        
+        // 更新血氧
+        function updateSpo2(value) {
+            spo2Element.textContent = value;
+            
+            if (value < 95) {
+                spo2Element.className = 'metric-value metric-warning';
+            } else if (value < 90) {
+                spo2Element.className = 'metric-value metric-danger';
+            } else {
+                spo2Element.className = 'metric-value metric-normal';
+            }
+            
+            updateChart('spo2', value);
+        }
+        
+        // 更新疲劳指数
+        function updateFatigue(value) {
+            fatigueElement.textContent = value;
+            
+            if (value > 50) {
+                fatigueElement.className = 'metric-value metric-warning';
+            } else if (value > 75) {
+                fatigueElement.className = 'metric-value metric-danger';
+            } else {
+                fatigueElement.className = 'metric-value metric-normal';
+            }
+            
+            updateChart('fatigue', value);
+        }
+        
+        // 更新收缩压
+        function updateSystolic(value) {
+            const diastolic = healthData.diastolic[healthData.diastolic.length - 1] || '--';
+            bloodPressureElement.textContent = `${value}/${diastolic}`;
+            
+            updateBPStatusColor(value, diastolic);
+            updateChart('systolic', value);
+        }
+        
+        // 更新舒张压
+        function updateDiastolic(value) {
+            const systolic = healthData.systolic[healthData.systolic.length - 1] || '--';
+            bloodPressureElement.textContent = `${systolic}/${value}`;
+            
+            updateBPStatusColor(systolic, value);
+            updateChart('diastolic', value);
+        }
+        
+        // 更新血压颜色状态
+        function updateBPStatusColor(systolic, diastolic) {
+            if (systolic !== '--' && diastolic !== '--') {
+                systolic = Number(systolic);
+                diastolic = Number(diastolic);
+                
+                if (systolic > 140 || diastolic > 90) {
+                    bloodPressureElement.className = 'metric-value metric-danger';
+                } else if (systolic > 130 || diastolic > 85) {
+                    bloodPressureElement.className = 'metric-value metric-warning';
+                } else {
+                    bloodPressureElement.className = 'metric-value metric-normal';
+                }
             }
         }
         
@@ -216,14 +831,17 @@
                     await characteristicObj.stopNotifications();
                 } catch (e) {
                     console.log('停止通知失败:', e);
+                    addLog('停止通知失败', 'error');
                 }
             }
             
             if (deviceObj && deviceObj.gatt.connected) {
                 try {
                     deviceObj.gatt.disconnect();
+                    addLog('已断开设备连接');
                 } catch (e) {
                     console.log('断开连接失败:', e);
+                    addLog('断开连接失败', 'error');
                 }
             } else {
                 onDisconnected();
@@ -232,21 +850,27 @@
         
         // 断开连接处理
         function onDisconnected() {
+            updateConnectionUI(false);
             statusElement.textContent = "已断开";
-            deviceNameElement.textContent = "--";
-            connectButton.textContent = "连接蓝牙设备";
-            connectButton.disabled = false;
+            addLog('设备已断开连接');
             
-            deviceObj = null;
             characteristicObj = null;
         }
         
-        // 检查浏览器支持
-        if (!navigator.bluetooth) {
-            statusElement.textContent = "此浏览器不支持Web蓝牙!";
-            connectButton.disabled = true;
-            alert("此浏览器不支持Web蓝牙 API。请使用Chrome、Edge或其他支持的浏览器。");
-        }
+        // 页面加载初始化
+        window.addEventListener('load', function() {
+            // 检查浏览器支持
+            if (!navigator.bluetooth) {
+                statusElement.textContent = "此浏览器不支持Web蓝牙!";
+                connectButton.disabled = true;
+                addLog('此浏览器不支持Web蓝牙 API', 'error');
+                alert("此浏览器不支持Web蓝牙 API。请使用Chrome、Edge或其他支持的浏览器。");
+                return;
+            }
+            
+            initCharts();
+            addLog('系统就绪，请点击"连接蓝牙设备"开始');
+        });
     </script>
 </body>
 </html>
