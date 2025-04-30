@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>基础蓝牙数据显示</title>
+    <title>ESP32健康数据接收器</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,284 +12,241 @@
             padding: 20px;
         }
         button {
-            padding: 10px 20px;
+            padding: 12px 24px;
             margin: 10px 0;
             background-color: #4CAF50;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 5px;
             cursor: pointer;
+            font-size: 16px;
         }
         button:disabled {
             background-color: #cccccc;
         }
-        #log {
-            height: 150px;
-            border: 1px solid #ddd;
-            padding: 10px;
-            overflow-y: auto;
-            margin-bottom: 20px;
-            background-color: #f9f9f9;
-        }
-        .data-container {
-            margin-top: 20px;
-        }
-        .data-item {
-            margin-bottom: 10px;
+        .status {
+            margin: 20px 0;
             padding: 10px;
             background-color: #f0f0f0;
-            border-left: 4px solid #4CAF50;
+            border-left: 5px solid #4CAF50;
         }
-        .label {
+        .data-box {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .data-item {
+            display: flex;
+            margin: 10px 0;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .data-label {
             font-weight: bold;
+            width: 120px;
         }
-        .raw-data {
+        .data-value {
+            flex: 1;
+        }
+        .raw-json {
             margin-top: 20px;
             padding: 10px;
             background-color: #eee;
+            border: 1px solid #ddd;
+            border-radius: 4px;
             font-family: monospace;
+            white-space: pre-wrap;
             word-break: break-all;
         }
     </style>
 </head>
 <body>
-    <h1>蓝牙数据接收器</h1>
+    <h1>ESP32健康数据接收器</h1>
     
-    <button id="connectButton">连接蓝牙设备</button>
-    <button id="disconnectButton" disabled>断开连接</button>
+    <button id="connect">连接蓝牙设备</button>
     
-    <div id="deviceInfo">
-        <p>设备名称: <span id="deviceName">未连接</span></p>
-        <p>连接状态: <span id="connectionStatus">未连接</span></p>
+    <div class="status">
+        <div>状态: <span id="connection-status">未连接</span></div>
+        <div>设备: <span id="device-name">--</span></div>
     </div>
     
-    <h2>日志信息</h2>
-    <div id="log"></div>
-    
-    <h2>接收到的数据</h2>
-    <div class="data-container">
+    <div class="data-box">
+        <h2>健康数据</h2>
         <div class="data-item">
-            <span class="label">心率:</span> <span id="heartRate">--</span>
+            <div class="data-label">心率:</div>
+            <div class="data-value" id="heart-rate">--</div>
         </div>
         <div class="data-item">
-            <span class="label">血氧:</span> <span id="spo2">--</span>
+            <div class="data-label">血氧饱和度:</div>
+            <div class="data-value" id="spo2">--</div>
         </div>
         <div class="data-item">
-            <span class="label">疲劳指数:</span> <span id="fatigue">--</span>
+            <div class="data-label">疲劳指数:</div>
+            <div class="data-value" id="fatigue">--</div>
         </div>
         <div class="data-item">
-            <span class="label">血压:</span> <span id="bloodPressure">--/--</span>
+            <div class="data-label">血压:</div>
+            <div class="data-value" id="blood-pressure">--/--</div>
         </div>
     </div>
     
-    <h2>原始数据</h2>
-    <div id="rawData" class="raw-data">无数据</div>
-
+    <div>
+        <h2>原始JSON数据</h2>
+        <div class="raw-json" id="raw-data">等待数据...</div>
+    </div>
+    
     <script>
         // 蓝牙配置
-        const serviceUUID = "12345678-1234-5678-1234-56789abcdef0";
-        const characteristicUUID = "6d68ef10-1f3a-11ee-be56-0242ac120002";
+        const SERVICE_UUID = "12345678-1234-5678-1234-56789abcdef0";
+        const CHARACTERISTIC_UUID = "6d68ef10-1f3a-11ee-be56-0242ac120002";
         
-        // DOM元素
-        const connectButton = document.getElementById('connectButton');
-        const disconnectButton = document.getElementById('disconnectButton');
-        const deviceNameElement = document.getElementById('deviceName');
-        const connectionStatusElement = document.getElementById('connectionStatus');
-        const logElement = document.getElementById('log');
-        const heartRateElement = document.getElementById('heartRate');
+        // 获取DOM元素
+        const connectButton = document.getElementById('connect');
+        const statusElement = document.getElementById('connection-status');
+        const deviceNameElement = document.getElementById('device-name');
+        const heartRateElement = document.getElementById('heart-rate');
         const spo2Element = document.getElementById('spo2');
         const fatigueElement = document.getElementById('fatigue');
-        const bloodPressureElement = document.getElementById('bloodPressure');
-        const rawDataElement = document.getElementById('rawData');
+        const bloodPressureElement = document.getElementById('blood-pressure');
+        const rawDataElement = document.getElementById('raw-data');
         
         // 全局变量
-        let device = null;
-        let server = null;
-        let characteristic = null;
+        let deviceObj = null;
+        let characteristicObj = null;
         
-        // 添加日志
-        function addLog(message) {
-            const logEntry = document.createElement('div');
-            logEntry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
-            logElement.appendChild(logEntry);
-            logElement.scrollTop = logElement.scrollHeight;
-        }
-        
-        // 修改蓝牙连接函数
-        async function connectDevice() {
+        // 连接按钮事件
+        connectButton.addEventListener('click', async () => {
+            if (deviceObj && deviceObj.gatt.connected) {
+                await disconnect();
+                return;
+            }
+            
             try {
-                addLog('正在请求蓝牙设备...');
+                connectButton.disabled = true;
+                statusElement.textContent = "正在搜索设备...";
                 
-                // 修改请求设备的方式，更宽松的过滤条件
-                device = await navigator.bluetooth.requestDevice({
-                    // 使用名称前缀过滤
-                    filters: [{ namePrefix: 'ESP32' }],
-                    // 声明我们将使用的服务
-                    optionalServices: [serviceUUID]
+                // 请求蓝牙设备
+                deviceObj = await navigator.bluetooth.requestDevice({
+                    filters: [
+                        { namePrefix: 'ESP32' },
+                        { services: [SERVICE_UUID] }
+                    ],
+                    optionalServices: [SERVICE_UUID]
                 });
                 
-                deviceNameElement.textContent = device.name || 'ESP32蓝牙设备';
-                addLog(`设备已选择: ${device.name || 'ESP32蓝牙设备'}`);
+                deviceNameElement.textContent = deviceObj.name || 'ESP32设备';
+                statusElement.textContent = "正在连接...";
                 
-                // 设备断开连接事件处理
-                device.addEventListener('gattserverdisconnected', handleDisconnect);
+                // 监听断开连接事件
+                deviceObj.addEventListener('gattserverdisconnected', onDisconnected);
                 
-                connectionStatusElement.textContent = '正在连接...';
-                addLog('正在连接到GATT服务器...');
-                
-                // 添加超时和重试机制
-                server = await connectWithRetry(device);
-                addLog('已连接到GATT服务器');
-                
-                // 等待一小段时间再获取服务
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // 连接到设备
+                const server = await deviceObj.gatt.connect();
+                statusElement.textContent = "正在获取服务...";
                 
                 // 获取服务
-                addLog('正在获取蓝牙服务...');
-                const service = await server.getPrimaryService(serviceUUID);
-                addLog('已获取蓝牙服务');
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                statusElement.textContent = "正在获取特性...";
                 
-                // 再等待一下
-                await new Promise(resolve => setTimeout(resolve, 300));
+                // 获取特性
+                characteristicObj = await service.getCharacteristic(CHARACTERISTIC_UUID);
                 
-                // 获取特征值
-                addLog('正在获取特征值...');
-                characteristic = await service.getCharacteristic(characteristicUUID);
-                addLog('已获取特征值');
+                // 启用通知
+                await characteristicObj.startNotifications();
+                characteristicObj.addEventListener('characteristicvaluechanged', handleNotifications);
                 
-                // 启动通知
-                addLog('正在启动通知...');
-                await characteristic.startNotifications();
-                characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
-                addLog('通知已启动，等待数据...');
-                
-                connectionStatusElement.textContent = '已连接';
-                connectButton.disabled = true;
-                disconnectButton.disabled = false;
+                statusElement.textContent = "已连接，等待数据";
+                connectButton.textContent = "断开连接";
+                connectButton.disabled = false;
                 
             } catch (error) {
-                addLog(`连接错误: ${error.message || error}`);
-                console.error('连接错误:', error);
-                disconnectDevice();
+                console.error("蓝牙连接错误:", error);
+                statusElement.textContent = `连接失败: ${error.message || error}`;
+                disconnect();
             }
-        }
+        });
         
-        // 添加连接重试机制
-        async function connectWithRetry(device, maxRetries = 3) {
-            let retries = 0;
-            while (retries < maxRetries) {
+        // 处理接收到的通知
+        function handleNotifications(event) {
+            try {
+                // 获取数据
+                const value = event.target.value;
+                const decoder = new TextDecoder('utf-8');
+                const jsonString = decoder.decode(value);
+                
+                // 显示原始数据
+                rawDataElement.textContent = jsonString;
+                
                 try {
-                    addLog(`尝试连接，第 ${retries + 1} 次`);
-                    return await device.gatt.connect();
-                } catch (error) {
-                    retries++;
-                    if (retries >= maxRetries) {
-                        throw error;
+                    // 尝试解析JSON
+                    const data = JSON.parse(jsonString);
+                    
+                    // 更新UI
+                    if (data.heartRate !== undefined) {
+                        heartRateElement.textContent = data.heartRate;
                     }
-                    addLog(`连接失败，等待重试... (${retries}/${maxRetries})`);
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    if (data.spo2 !== undefined) {
+                        spo2Element.textContent = data.spo2;
+                    }
+                    
+                    if (data.fatigue !== undefined) {
+                        fatigueElement.textContent = data.fatigue;
+                    }
+                    
+                    if (data.systolic !== undefined && data.diastolic !== undefined) {
+                        bloodPressureElement.textContent = `${data.systolic}/${data.diastolic}`;
+                    }
+                    
+                } catch (e) {
+                    console.error('解析JSON出错:', e);
+                    // 发生错误时仍然显示原始数据
                 }
+            } catch (error) {
+                console.error('处理通知错误:', error);
             }
         }
         
         // 断开连接
-        function disconnectDevice() {
-            if (device && device.gatt.connected) {
-                device.gatt.disconnect();
-            } else {
-                handleDisconnect();
-            }
-        }
-        
-        // 处理断开连接事件
-        function handleDisconnect() {
-            addLog('设备已断开连接');
-            connectionStatusElement.textContent = '未连接';
-            deviceNameElement.textContent = '未连接';
-            connectButton.disabled = false;
-            disconnectButton.disabled = true;
-            
-            // 清除全局变量
-            device = null;
-            server = null;
-            characteristic = null;
-        }
-        
-        // 处理收到的通知
-        function handleNotifications(event) {
-            try {
-                const value = new TextDecoder().decode(event.target.value);
-                addLog(`收到数据: ${value}`);
-                rawDataElement.textContent = value;
-                
-                // 解析数据
-                parseNotification(value);
-                
-            } catch (error) {
-                addLog(`解析数据错误: ${error.message}`);
-            }
-        }
-        
-        // 解析通知数据 - 更健壮的版本
-        function parseNotification(data) {
-            try {
-                const value = data.trim();
-                
-                // 记录我们尝试解析的数据
-                console.log("尝试解析:", value);
-                
-                if (value.includes('心率') || value.includes('心率：')) {
-                    const match = value.match(/\d+/);
-                    if (match) {
-                        const heartRate = parseInt(match[0], 10);
-                        heartRateElement.textContent = heartRate;
-                        addLog(`解析到心率: ${heartRate}`);
-                    }
-                } else if (value.includes('血氧') || value.includes('血氧：')) {
-                    const match = value.match(/\d+/);
-                    if (match) {
-                        const spo2 = parseInt(match[0], 10);
-                        spo2Element.textContent = spo2;
-                        addLog(`解析到血氧: ${spo2}`);
-                    }
-                } else if (value.includes('疲劳指数') || value.includes('疲劳指数：')) {
-                    const match = value.match(/\d+/);
-                    if (match) {
-                        const fatigue = parseInt(match[0], 10);
-                        fatigueElement.textContent = fatigue;
-                        addLog(`解析到疲劳指数: ${fatigue}`);
-                    }
-                } else if (value.includes('收缩压') || value.includes('收缩压：')) {
-                    const match = value.match(/\d+/);
-                    if (match) {
-                        const systolic = parseInt(match[0], 10);
-                        const diastolic = bloodPressureElement.textContent.split('/')[1] || '--';
-                        bloodPressureElement.textContent = `${systolic}/${diastolic}`;
-                        addLog(`解析到收缩压: ${systolic}`);
-                    }
-                } else if (value.includes('舒张压') || value.includes('舒张压：')) {
-                    const match = value.match(/\d+/);
-                    if (match) {
-                        const diastolic = parseInt(match[0], 10);
-                        const systolic = bloodPressureElement.textContent.split('/')[0] || '--';
-                        bloodPressureElement.textContent = `${systolic}/${diastolic}`;
-                        addLog(`解析到舒张压: ${diastolic}`);
-                    }
-                } else {
-                    // 尝试寻找任何匹配的数字模式
-                    addLog(`无法识别的数据格式: ${value}`);
+        async function disconnect() {
+            if (characteristicObj) {
+                try {
+                    await characteristicObj.stopNotifications();
+                } catch (e) {
+                    console.log('停止通知失败:', e);
                 }
-            } catch (error) {
-                addLog(`解析过程中出错: ${error.message}`);
+            }
+            
+            if (deviceObj && deviceObj.gatt.connected) {
+                try {
+                    deviceObj.gatt.disconnect();
+                } catch (e) {
+                    console.log('断开连接失败:', e);
+                }
+            } else {
+                onDisconnected();
             }
         }
         
-        // 事件监听器
-        connectButton.addEventListener('click', connectDevice);
-        disconnectButton.addEventListener('click', disconnectDevice);
+        // 断开连接处理
+        function onDisconnected() {
+            statusElement.textContent = "已断开";
+            deviceNameElement.textContent = "--";
+            connectButton.textContent = "连接蓝牙设备";
+            connectButton.disabled = false;
+            
+            deviceObj = null;
+            characteristicObj = null;
+        }
         
-        // 初始化日志
-        addLog('网页已加载，点击"连接蓝牙设备"按钮开始');
+        // 检查浏览器支持
+        if (!navigator.bluetooth) {
+            statusElement.textContent = "此浏览器不支持Web蓝牙!";
+            connectButton.disabled = true;
+            alert("此浏览器不支持Web蓝牙 API。请使用Chrome、Edge或其他支持的浏览器。");
+        }
     </script>
 </body>
 </html>
